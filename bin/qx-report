@@ -1,0 +1,23 @@
+#!/usr/bin/env python3
+import argparse, json, os, sys
+from qx.runtime import list_runs, load_run
+
+def main():
+    ap = argparse.ArgumentParser(description="List runs or show a run artifact")
+    ap.add_argument("--list", action="store_true", help="List run_ids in ./.qx_runs")
+    ap.add_argument("--run", help="Show one run by run_id (16 hex)")
+    args = ap.parse_args()
+
+    if args.list:
+        for rid in list_runs():
+            print(rid)
+        return 0
+    if args.run:
+        res = load_run(args.run)
+        print(json.dumps({"counts": res.counts, "metadata": res.metadata}, indent=2))
+        return 0
+    print("Use --list or --run <id>")
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main())

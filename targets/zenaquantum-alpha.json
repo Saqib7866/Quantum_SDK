@@ -1,0 +1,1 @@
+{"name": "zenaquantum-alpha", "max_qubits": 5, "gates": ["h", "x", "cx", "measure"]}

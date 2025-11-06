@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "QX IR v1",
+  "type": "object",
+  "required": ["ops"],
+  "properties": {
+    "ir_version": {"type": "string", "const": "1.0"},
+    "n_qubits": {"type": "integer", "minimum": 0},
+    "qubits": {"type": "integer", "minimum": 0},
+    "n_clbits": {"type": "integer", "minimum": 0},
+    "ops": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "qubits"],
+        "properties": {
+          "name": {"type": "string"},
+          "qubits": {"type": "array", "items": {"type": "integer", "minimum": 0}},
+          "params": {"type": "array", "items": {"type": "number"}},
+          "clbits": {"type": "array", "items": {"type": "integer", "minimum": 0}}
+        },
+        "additionalProperties": false
+      }
+    },
+    "metadata": {"type": "object"}
+  },
+  "additionalProperties": false,
+  "oneOf": [
+    {"required": ["n_qubits"]},
+    {"required": ["qubits"]}
+  ]
+}

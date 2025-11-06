@@ -1,0 +1,26 @@
+site_name: ZenaQuantum SDK
+theme:
+  name: material
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            show_source: false
+            members_order: source
+nav:
+  - Home: index.md
+  - Getting Started: getting_started.md
+  - Configuration: config.md
+  - Quickstart: quickstart.md
+  - Targets & Devices: targets.md
+  - CLI: cli.md
+  - API Reference:
+      - Circuit: api/circuit.md
+      - Runtime & Jobs: api/runtime.md
+      - Visualization: api/vis.md
+      - Transpiler Passes: api/passes.md
+      - Simulator: api/sim_local.md
+  - Changelog: changelog.md
