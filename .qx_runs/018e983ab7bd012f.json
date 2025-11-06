@@ -1,0 +1,16 @@
+{
+  "job_id": "job-2ac5c799",
+  "run_id": "018e983ab7bd012f",
+  "created_at": "2025-11-04T12:45:47.403781+00:00",
+  "counts": {
+    "00": 44,
+    "11": 56
+  },
+  "metadata": {
+    "shots": 100,
+    "n_qubits": 2,
+    "clbits": 2,
+    "target_name": "zenaquantum-alpha",
+    "run_started_at": "2025-11-04T12:45:47.403682+00:00"
+  }
+}

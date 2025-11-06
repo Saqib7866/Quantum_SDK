@@ -1,0 +1,46 @@
+{
+  "job_id": "job-02d41b5b",
+  "run_id": "89a42c58563366cb",
+  "created_at": "2025-11-06T07:39:13.185923+00:00",
+  "counts": {
+    "000": 1410,
+    "001": 218,
+    "100": 239,
+    "010": 224,
+    "101": 205,
+    "110": 220,
+    "011": 222,
+    "111": 1358
+  },
+  "metadata": {
+    "shots": 4096,
+    "n_qubits": 3,
+    "clbits": 3,
+    "noise": {
+      "readout_error": 0.04,
+      "oneq_error": 0.01,
+      "twoq_error": 0.02,
+      "lanes": 1,
+      "lat": 0.5
+    },
+    "hardware": "ZenaQuantum Alpha (emulated)",
+    "queue_delay_s": 0.22332754695139811,
+    "runtime_sec": 0.501625,
+    "twoq_count": 2,
+    "noise_effective": {
+      "e1": 0.022000000000000002,
+      "e2": 0.052000000000000005,
+      "ro": 0.07200000000000001
+    },
+    "noise_base": {
+      "e1": 0.01,
+      "e2": 0.02,
+      "ro": 0.04
+    },
+    "lanes": 1,
+    "max_active_seen": 1,
+    "target_name": "zenaquantum-alpha",
+    "run_started_at": "2025-11-06T07:39:13.185837+00:00",
+    "seed": null
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "job_id": "job-d1b40b4f",
+  "run_id": "ef3566693a0c7c49",
+  "created_at": "2025-11-06T11:15:27.694243+00:00",
+  "counts": {
+    "00": 3551,
+    "11": 3637
+  },
+  "metadata": {
+    "shots": 7188,
+    "n_qubits": 2,
+    "clbits": 2,
+    "noise": {
+      "readout_error": 0.0,
+      "oneq_error": 0.0,
+      "twoq_error": 0.0
+    },
+    "target_name": "sim-local",
+    "run_started_at": "2025-11-06T11:15:27.694141+00:00",
+    "seed": null
+  }
+}
