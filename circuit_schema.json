@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "QX-IR v1 Circuit Schema",
+  "description": "A schema for defining a quantum circuit.",
+  "type": "object",
+  "properties": {
+    "qxir_version": {
+      "description": "The version of the QX-IR specification.",
+      "type": "string",
+      "pattern": "^1\\.[0-9]+$"
+    },
+    "n_qubits": {
+      "description": "The number of qubits in the circuit.",
+      "type": "integer",
+      "minimum": 1
+    },
+    "instructions": {
+      "description": "A list of quantum operations.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "description": "The name of the gate or operation.",
+            "type": "string"
+          },
+          "qubits": {
+            "description": "A list of qubit indices the operation acts on.",
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "params": {
+            "description": "A list of parameters for the operation (e.g., rotation angles).",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "required": ["name", "qubits"]
+      }
+    }
+  },
+  "required": ["qxir_version", "n_qubits", "instructions"]
+}

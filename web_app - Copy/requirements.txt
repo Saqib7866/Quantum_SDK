@@ -1,0 +1,6 @@
+flask>=2.0.1
+matplotlib>=3.4.2
+numpy>=1.21.0
+plotly>=5.3.1
+kaleido>=0.2.1
+qx_ir>=0.1.0  # Assuming your package is installed in development mode

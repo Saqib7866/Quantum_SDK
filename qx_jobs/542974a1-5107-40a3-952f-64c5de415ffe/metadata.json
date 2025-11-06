@@ -1,0 +1,7 @@
+{
+  "job_id": "542974a1-5107-40a3-952f-64c5de415ffe",
+  "created_at": "2025-11-05T19:23:51.905464",
+  "shots": 1024,
+  "n_qubits": 2,
+  "status": "QUEUED"
+}

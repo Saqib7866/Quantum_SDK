@@ -1,0 +1,2 @@
+[console_scripts]
+qx = qx_ir.cli.main:qx

@@ -1,0 +1,30 @@
+{
+  "backend_name": "spinq5",
+  "backend_version": "0.1.0",
+  "n_qubits": 5,
+  "basis_gates": ["id", "rz", "sx", "x", "cx", "h", "t", "tdg"],
+  "coupling_map": [[0,1], [1,2], [2,3], [3,4], [0,2]],
+  "meas_map": [[0],[1],[2],[3],[4]],
+  "gate_fidelities": {
+    "id": 0.999,
+    "rz": 0.999,
+    "sx": 0.998,
+    "x": 0.998,
+    "cx": 0.99,
+    "h": 0.998,
+    "t": 0.999,
+    "tdg": 0.999
+  },
+  "simulator": false,
+  "local": true,
+  "open_pulse": false,
+  "dt": 2.22e-10,
+  "max_experiments": 75,
+  "max_shots": 8192,
+  "description": "SpinQ-5 superconducting device",
+  "custom": {
+    "bit_order": "MSB0",
+    "endpoint": "http://localhost:8000",
+    "auth": { "type": "none" }
+  }
+}

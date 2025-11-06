@@ -1,0 +1,8 @@
+{
+  "n_qubits": 2,
+  "instructions": [
+    {"name": "h", "qubits": [0]},
+    {"name": "cx", "qubits": [0, 1]},
+    {"name": "measure", "qubits": [0, 1]}
+  ]
+}
