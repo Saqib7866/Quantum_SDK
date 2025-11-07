@@ -175,6 +175,18 @@ class Circuit:
         self._validate_qubit(q)
         self._prog.add(Op("x", (q,), condition=condition))
 
+    def sx(self, q: Union[int, Tuple[int, ...], List[int]], condition: Optional[int] = None) -> None:
+        """Apply a square-root of X gate (√X)."""
+        q = self._normalize_qubit(q)
+        self._validate_qubit(q)
+        self._prog.add(Op("sx", (q,), condition=condition))
+
+    def sxdg(self, q: Union[int, Tuple[int, ...], List[int]], condition: Optional[int] = None) -> None:
+        """Apply the adjoint square-root of X gate (√X†)."""
+        q = self._normalize_qubit(q)
+        self._validate_qubit(q)
+        self._prog.add(Op("sxdg", (q,), condition=condition))
+
     def y(self, q: Union[int, Tuple[int, ...], List[int]], condition: Optional[int] = None) -> None:
         """Apply a Pauli-Y gate to a qubit."""
         q = self._normalize_qubit(q)
@@ -256,6 +268,16 @@ class Circuit:
             raise ValueError("Control and target qubits must be unique")
         self._prog.add(Op("ccx", (c1, c2, t), condition=condition))
 
+    def ccz(self, c1: int, c2: int, t: int, condition: Optional[int] = None) -> None:
+        """Apply a controlled-controlled-Z gate."""
+        c1 = self._normalize_qubit(c1)
+        c2 = self._normalize_qubit(c2)
+        t = self._normalize_qubit(t)
+        self._validate_qubits(c1, c2, t)
+        if len({c1, c2, t}) != 3:
+            raise ValueError("All qubits must be unique")
+        self._prog.add(Op("ccz", (c1, c2, t), condition=condition))
+
     def swap(self, q1: int, q2: int, condition: Optional[int] = None) -> None:
         """Apply a SWAP gate."""
         q1 = self._normalize_qubit(q1)
@@ -264,6 +286,15 @@ class Circuit:
         if q1 == q2:
             raise ValueError("SWAP qubits must be different")
         self._prog.add(Op("swap", (q1, q2), condition=condition))
+
+    def iswap(self, q1: int, q2: int, condition: Optional[int] = None) -> None:
+        """Apply an iSWAP gate."""
+        q1 = self._normalize_qubit(q1)
+        q2 = self._normalize_qubit(q2)
+        self._validate_qubits(q1, q2)
+        if q1 == q2:
+            raise ValueError("iSWAP qubits must be different")
+        self._prog.add(Op("iswap", (q1, q2), condition=condition))
 
     def cu1(self, lam: float, c: int, t: int, condition: Optional[int] = None) -> None:
         """Apply a controlled-U1 gate."""
@@ -275,6 +306,10 @@ class Circuit:
             raise ValueError("Control and target qubits must be different")
         self._prog.add(Op("cu1", (c, t), (lam,), condition=condition))
 
+    def cp(self, lam: float, control: int, target: int, condition: Optional[int] = None) -> None:
+        """Apply a controlled phase gate (alias of CU1)."""
+        self.cu1(lam, control, target, condition=condition)
+
     def cz(self, control: int, target: int, condition: Optional[int] = None) -> None:
         """Apply a controlled-Z gate."""
         c = self._normalize_qubit(control)
@@ -283,6 +318,24 @@ class Circuit:
         if c == t:
             raise ValueError("Control and target qubits must be different")
         self._prog.add(Op("cz", (c, t), condition=condition))
+
+    def cy(self, control: int, target: int, condition: Optional[int] = None) -> None:
+        """Apply a controlled-Y gate."""
+        c = self._normalize_qubit(control)
+        t = self._normalize_qubit(target)
+        self._validate_qubits(c, t)
+        if c == t:
+            raise ValueError("Control and target qubits must be different")
+        self._prog.add(Op("cy", (c, t), condition=condition))
+
+    def csx(self, control: int, target: int, condition: Optional[int] = None) -> None:
+        """Apply a controlled-√X gate."""
+        c = self._normalize_qubit(control)
+        t = self._normalize_qubit(target)
+        self._validate_qubits(c, t)
+        if c == t:
+            raise ValueError("Control and target qubits must be different")
+        self._prog.add(Op("csx", (c, t), condition=condition))
         
     # Phase gates
     def s(self, q: int, condition: Optional[int] = None) -> None:
@@ -388,6 +441,10 @@ class Circuit:
         q = self._normalize_qubit(q)
         self._validate_qubit(q)
         self._prog.add(Op("u1", (q,), (lam,), condition=condition))
+
+    def p(self, lam: float, q: int, condition: Optional[int] = None) -> None:
+        """Apply a phase shift gate (alias of U1)."""
+        self.u1(lam, q, condition=condition)
         
     def u2(self, phi: float, lam: float, q: int, condition: Optional[int] = None) -> None:
         """Apply a U2 gate."""

@@ -21,13 +21,16 @@ class ZenaQuantumAlphaSimulator(LocalSimulator):
         super().__init__(noise=noise or {})
         # durations in ns (fallback defaults)
         self.durations = durations or {
-            "h": 25, "x": 20, "y": 20, "z": 0, "rz": 15, 
+            "h": 25, "x": 20, "y": 20, "z": 0, "rz": 15,
+            "sx": 30, "sxdg": 30,
             "s": 20, "sdg": 20, "t": 20, "tdg": 20,
-            "cx": 220, "measure": 400, "reset": 1000,
+            "cx": 220, "cy": 230, "csx": 240, "cp": 200, "cz": 220,
+            "iswap": 260,
+            "measure": 400, "reset": 1000,
             "crx": 200, "cry": 200, "crz": 200,
-            "cswap": 600, "ccx": 600,
+            "cswap": 600, "ccx": 600, "ccz": 620,
             "rxx": 200, "ryy": 200, "rzz": 200,
-            "u1": 0, "u2": 100, "u3": 200
+            "u1": 0, "u2": 100, "u3": 200, "p": 0
         }
 
         # base noise from target JSON or defaults

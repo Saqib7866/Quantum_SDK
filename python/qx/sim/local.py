@@ -8,6 +8,8 @@ H  = (1/np.sqrt(2))*np.array([[1,1],[1,-1]], dtype=complex)
 X  = np.array([[0,1],[1,0]], dtype=complex)
 Y  = np.array([[0,-1j],[1j,0]], dtype=complex)
 Z  = np.array([[1,0],[0,-1]], dtype=complex)
+SX = 0.5 * np.array([[1+1j, 1-1j], [1-1j, 1+1j]], dtype=complex)
+SXDAG = SX.conj().T
 
 def _rot(axis: str, theta: float):
     if axis=="x":
@@ -57,6 +59,24 @@ def _cz(n, c, t):
         if b[c] == 1 and b[t] == 1:
             U[i,i] = -1
     return U
+
+
+def _controlled_single_qubit(U: np.ndarray, n: int, c: int, t: int):
+    """Embed a controlled single-qubit gate for arbitrary control/target."""
+    dim = 2**n
+    mat = np.zeros((dim, dim), dtype=complex)
+    for col in range(dim):
+        bits = [(col >> k) & 1 for k in range(n)]
+        if bits[c] == 0:
+            mat[col, col] = 1.0
+            continue
+        initial = bits[t]
+        for new_state in (0, 1):
+            new_bits = bits.copy()
+            new_bits[t] = new_state
+            row = sum(new_bits[k] << k for k in range(n))
+            mat[row, col] += U[new_state, initial]
+    return mat
 
 def _s(n, q):
     """S gate (√Z)"""
@@ -167,6 +187,58 @@ def _cswap(n, c, a, b):
                 U[j,i] = 1
     return U
 
+
+def _cy(n, c, t):
+    return _controlled_single_qubit(Y, n, c, t)
+
+
+def _csx(n, c, t):
+    return _controlled_single_qubit(SX, n, c, t)
+
+
+def _cp(n, lam, c, t):
+    return _cu1(n, lam, c, t)
+
+
+def _two_qubit_gate(U: np.ndarray, n: int, q1: int, q2: int):
+    if q1 == q2:
+        raise ValueError("Two-qubit gate requires distinct qubits")
+    dim = 2**n
+    mat = np.zeros((dim, dim), dtype=complex)
+    for col in range(dim):
+        bits = [(col >> k) & 1 for k in range(n)]
+        basis_index = bits[q1] + 2 * bits[q2]
+        for row_state in range(4):
+            new_bits = bits.copy()
+            new_bits[q1] = row_state & 1
+            new_bits[q2] = (row_state >> 1) & 1
+            row = sum(new_bits[k] << k for k in range(n))
+            mat[row, col] += U[row_state, basis_index]
+    return mat
+
+
+def _iswap(n, q1, q2):
+    iswap_matrix = np.array(
+        [
+            [1, 0, 0, 0],
+            [0, 0, 1j, 0],
+            [0, 1j, 0, 0],
+            [0, 0, 0, 1],
+        ],
+        dtype=complex,
+    )
+    return _two_qubit_gate(iswap_matrix, n, q1, q2)
+
+
+def _ccz(n, c1, c2, t):
+    dim = 2**n
+    U = np.eye(dim, dtype=complex)
+    for i in range(dim):
+        bits = [(i >> k) & 1 for k in range(n)]
+        if bits[c1] == 1 and bits[c2] == 1 and bits[t] == 1:
+            U[i, i] = -1
+    return U
+
 def _rxx(n, theta, q1, q2):
     """Ising XX coupling gate"""
     # RXX(θ) = exp(-i θ/2 X⊗X)
@@ -192,15 +264,16 @@ def _rzz(n, theta, q1, q2):
     # RZZ(θ) = exp(-i θ/2 Z⊗Z)
     dim = 2**n
     U = np.eye(dim, dtype=complex)
-    phase = np.exp(-1j * theta / 2)
-    
+
+    same_phase = np.exp(-1j * theta / 2)   # when qubits are equal (00 or 11)
+    diff_phase = np.exp(1j * theta / 2)    # when qubits differ (01 or 10)
+
     for i in range(dim):
-        b = [(i>>k)&1 for k in range(n)]
-        if (b[q1] ^ b[q2]) == 1:  # Different values (01 or 10)
-            U[i,i] = np.conj(phase)  # e^(iθ/2)
-        elif b[q1] == 1 and b[q2] == 1:  # Both 1
-            U[i,i] = phase  # e^(-iθ/2)
-        # For 00, U[i,i] remains 1
+        b = [(i >> k) & 1 for k in range(n)]
+        if b[q1] == b[q2]:
+            U[i, i] = same_phase
+        else:
+            U[i, i] = diff_phase
     return U
 
 def _u1(n, lam, q):
@@ -290,7 +363,7 @@ class LocalSimulator:
             if op.condition is not None and clbit_vals[op.condition] == 0:
                 continue
 
-            if op.name in ("h", "x", "y", "z", "rx", "ry", "rz"):
+            if op.name in ("h", "x", "y", "z", "rx", "ry", "rz", "sx", "sxdg"):
                 if op.name == "h":  U1 = H
                 elif op.name == "x": U1 = X
                 elif op.name == "y": U1 = Y
@@ -298,6 +371,8 @@ class LocalSimulator:
                 elif op.name == "rx": U1 = _rot("x", op.params[0])
                 elif op.name == "ry": U1 = _rot("y", op.params[0])
                 elif op.name == "rz": U1 = _rot("z", op.params[0])
+                elif op.name == "sx": U1 = SX
+                elif op.name == "sxdg": U1 = SXDAG
                 U = _one_to_n(U1, n, op.qubits[0])
                 psi = U @ psi
                 oneq_gate_counts[op.qubits[0]] += 1
@@ -330,6 +405,17 @@ class LocalSimulator:
                 if e2 > 0 and np.random.rand() < e2:
                     psi = _one_to_n(X, n, op.qubits[2]) @ psi
 
+            elif op.name == "ccz":
+                U = _ccz(n, op.qubits[0], op.qubits[1], op.qubits[2])
+                psi = U @ psi
+                twoq_gate_counts[op.qubits[0]] += 1
+                twoq_gate_counts[op.qubits[1]] += 1
+                twoq_gate_counts[op.qubits[2]] += 1
+                e2 = float(self.noise.get("twoq_error", 0.0))
+                if e2 > 0 and np.random.rand() < e2:
+                    # model error as X on target qubit
+                    psi = _one_to_n(X, n, op.qubits[2]) @ psi
+
             elif op.name == "swap":
                 a, b = op.qubits
                 U = _cx(n, a, b); psi = U @ psi
@@ -341,6 +427,17 @@ class LocalSimulator:
                 if e2 > 0 and np.random.rand() < e2:
                     psi = _one_to_n(X, n, a) @ _one_to_n(X, n, b) @ psi
 
+            elif op.name == "iswap":
+                q1, q2 = op.qubits
+                U = _iswap(n, q1, q2)
+                psi = U @ psi
+                twoq_gate_counts[q1] += 1
+                twoq_gate_counts[q2] += 1
+                e2 = float(self.noise.get("twoq_error", 0.0))
+
+                if e2 > 0 and np.random.rand() < e2:
+                    psi = _one_to_n(X, n, q1) @ _one_to_n(X, n, q2) @ psi
+
             elif op.name == "cu1":
                 U = _cu1(n, op.params[0], op.qubits[0], op.qubits[1])
                 psi = U @ psi
@@ -349,7 +446,30 @@ class LocalSimulator:
                 e2 = float(self.noise.get("twoq_error", 0.0))
                 if e2 > 0 and np.random.rand() < e2:
                     psi = _one_to_n(X, n, op.qubits[1]) @ psi
+
+            elif op.name == "cp":
+                U = _cp(n, op.params[0], op.qubits[0], op.qubits[1])
+                psi = U @ psi
+                twoq_gate_counts[op.qubits[0]] += 1
+                twoq_gate_counts[op.qubits[1]] += 1
+                e2 = float(self.noise.get("twoq_error", 0.0))
+                if e2 > 0 and np.random.rand() < e2:
+                    psi = _one_to_n(X, n, op.qubits[1]) @ psi
                 
+            # General single-qubit unitaries
+            elif op.name in ("u1", "u2", "u3", "p"):
+                if op.name == "u1" or op.name == "p":
+                    U = _u1(n, op.params[0], op.qubits[0])
+                elif op.name == "u2":
+                    U = _u2(n, op.params[0], op.params[1], op.qubits[0])
+                else:  # u3
+                    U = _u3(n, op.params[0], op.params[1], op.params[2], op.qubits[0])
+                psi = U @ psi
+                oneq_gate_counts[op.qubits[0]] += 1
+                e1 = float(self.noise.get("oneq_error", 0.0))
+                if e1 > 0 and np.random.rand() < e1:
+                    psi = _one_to_n(X, n, op.qubits[0]) @ psi
+
             # Phase gates
             elif op.name == "s":
                 U = _s(n, op.qubits[0])
@@ -449,31 +569,6 @@ class LocalSimulator:
                 if e2 > 0 and np.random.rand() < e2:
                     psi = _one_to_n(X, n, op.qubits[0]) @ _one_to_n(X, n, op.qubits[1]) @ psi
                 
-            # General unitary gates
-            elif op.name == "u1":
-                U = _u1(n, op.params[0], op.qubits[0])
-                psi = U @ psi
-                oneq_gate_counts[op.qubits[0]] += 1
-                e1 = float(self.noise.get("oneq_error", 0.0))
-                if e1 > 0 and np.random.rand() < e1:
-                    psi = _one_to_n(X, n, op.qubits[0]) @ psi
-                
-            elif op.name == "u2":
-                U = _u2(n, op.params[0], op.params[1], op.qubits[0])
-                psi = U @ psi
-                oneq_gate_counts[op.qubits[0]] += 1
-                e1 = float(self.noise.get("oneq_error", 0.0))
-                if e1 > 0 and np.random.rand() < e1:
-                    psi = _one_to_n(X, n, op.qubits[0]) @ psi
-                
-            elif op.name == "u3":
-                U = _u3(n, op.params[0], op.params[1], op.params[2], op.qubits[0])
-                psi = U @ psi
-                oneq_gate_counts[op.qubits[0]] += 1
-                e1 = float(self.noise.get("oneq_error", 0.0))
-                if e1 > 0 and np.random.rand() < e1:
-                    psi = _one_to_n(X, n, op.qubits[0]) @ psi
-                
             elif op.name == "cz":
                 U = _cz(n, op.qubits[0], op.qubits[1])
                 psi = U @ psi
@@ -482,6 +577,24 @@ class LocalSimulator:
                 e2 = float(self.noise.get("twoq_error", 0.0))
                 if e2 > 0 and np.random.rand() < e2:
                     psi = _one_to_n(X, n, op.qubits[0]) @ _one_to_n(X, n, op.qubits[1]) @ psi
+
+            elif op.name == "cy":
+                U = _cy(n, op.qubits[0], op.qubits[1])
+                psi = U @ psi
+                twoq_gate_counts[op.qubits[0]] += 1
+                twoq_gate_counts[op.qubits[1]] += 1
+                e2 = float(self.noise.get("twoq_error", 0.0))
+                if e2 > 0 and np.random.rand() < e2:
+                    psi = _one_to_n(X, n, op.qubits[1]) @ psi
+
+            elif op.name == "csx":
+                U = _csx(n, op.qubits[0], op.qubits[1])
+                psi = U @ psi
+                twoq_gate_counts[op.qubits[0]] += 1
+                twoq_gate_counts[op.qubits[1]] += 1
+                e2 = float(self.noise.get("twoq_error", 0.0))
+                if e2 > 0 and np.random.rand() < e2:
+                    psi = _one_to_n(X, n, op.qubits[1]) @ psi
 
             elif op.name == "measure":
                 probs = np.abs(psi) ** 2

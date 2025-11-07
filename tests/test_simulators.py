@@ -10,6 +10,7 @@ sys.path.insert(0, python_dir)
 sys.path.insert(0, project_root)
 
 # Import qx modules
+from qx import Circuit
 from qx.ir import Program, Op
 from qx.sim.local import LocalSimulator
 from qx.sim.zenaquantum_alpha import ZenaQuantumAlphaSimulator
@@ -43,6 +44,19 @@ def execute_circuit(simulator, program, shots=1000):
     if isinstance(result, tuple) and len(result) == 2:
         return result
     return result.get_counts(), getattr(result, 'metadata', {})
+
+
+def expected_key_from_bits(bits):
+    """Return the measurement key string matching simulator ordering (qubit 0 on the right)."""
+    return "".join(str(bit) for bit in bits)
+
+
+def run_circuit_with_counts(simulator, circuit, shots=256):
+    counts, _ = execute_circuit(simulator, circuit.program, shots=shots)
+    assert counts, "Simulator returned no counts"
+    total = sum(counts.values())
+    assert abs(total - shots) <= 10, f"Expected {shots} shots, got {total}"
+    return counts
 
 def test_bell_pair(simulator, name):
     print(f"\n--- Testing {name} with Bell pair circuit ---")
@@ -125,6 +139,124 @@ def test_parameterized_gates(simulator, name):
     assert abs(total - 1000) <= 10  # Should have close to 1000 shots
     
     print("✓ Test passed!")
+
+
+@pytest.mark.parametrize(
+    "description, builder, expected_bits",
+    [
+        ("X gate flips |0>", lambda qc, q: qc.x(q[0]), (1,)),
+        ("Y gate flips |0>", lambda qc, q: qc.y(q[0]), (1,)),
+        ("Z gate via HZH", lambda qc, q: (qc.h(q[0]), qc.z(q[0]), qc.h(q[0])), (1,)),
+        ("S gate squared behaves like Z", lambda qc, q: (qc.h(q[0]), qc.s(q[0]), qc.s(q[0]), qc.h(q[0])), (1,)),
+        ("Sdg gate squared behaves like Z", lambda qc, q: (qc.h(q[0]), qc.sdg(q[0]), qc.sdg(q[0]), qc.h(q[0])), (1,)),
+        ("T gate to the fourth equals Z", lambda qc, q: (qc.h(q[0]), qc.t(q[0]), qc.t(q[0]), qc.t(q[0]), qc.t(q[0]), qc.h(q[0])), (1,)),
+        ("Tdg gate to the fourth equals Z", lambda qc, q: (qc.h(q[0]), qc.tdg(q[0]), qc.tdg(q[0]), qc.tdg(q[0]), qc.tdg(q[0]), qc.h(q[0])), (1,)),
+        ("SX squared equals X", lambda qc, q: (qc.sx(q[0]), qc.sx(q[0])), (1,)),
+        ("SXdG squared equals X", lambda qc, q: (qc.sxdg(q[0]), qc.sxdg(q[0])), (1,)),
+        ("RX(pi) matches X", lambda qc, q: qc.rx(q[0], np.pi), (1,)),
+        ("RY(pi) matches X", lambda qc, q: qc.ry(q[0], np.pi), (1,)),
+        ("RZ(pi) via basis change", lambda qc, q: (qc.h(q[0]), qc.rz(q[0], np.pi), qc.h(q[0])), (1,)),
+        ("U1(pi) acts like Z", lambda qc, q: (qc.h(q[0]), qc.u1(np.pi, q[0]), qc.h(q[0])), (1,)),
+        ("P(pi) acts like Z", lambda qc, q: (qc.h(q[0]), qc.p(np.pi, q[0]), qc.h(q[0])), (1,)),
+        ("U2(0,pi) with readout in X basis", lambda qc, q: (qc.u2(0, np.pi, q[0]), qc.h(q[0])), (0,)),
+        ("U3(pi,0,pi) produces |1>", lambda qc, q: qc.u3(np.pi, 0.0, np.pi, q[0]), (1,)),
+    ],
+)
+def test_single_qubit_gate_identities(simulator, description, builder, expected_bits):
+    qc = Circuit()
+    q = qc.allocate(1)
+    builder(qc, q)
+    qc.measure(q[0])
+
+    shots = 256
+    counts = run_circuit_with_counts(simulator, qc, shots)
+    expected_key = expected_key_from_bits(expected_bits)
+    assert counts == {expected_key: shots}, f"{description} failed with counts {counts}"
+
+
+@pytest.mark.parametrize(
+    "description, builder, expected_bits",
+    [
+        ("CX flips target when control is |1>",
+         lambda qc, q: (qc.x(q[0]), qc.cx(q[0], q[1])),
+         (1, 1)),
+        ("CZ conjugated by H matches CX",
+         lambda qc, q: (qc.x(q[0]), qc.h(q[1]), qc.cz(q[0], q[1]), qc.h(q[1])),
+         (1, 1)),
+        ("CRX(pi) flips target",
+         lambda qc, q: (qc.x(q[0]), qc.crx(np.pi, q[0], q[1])),
+         (1, 1)),
+        ("CRY(pi) flips target",
+         lambda qc, q: (qc.x(q[0]), qc.cry(np.pi, q[0], q[1])),
+         (1, 1)),
+        ("CRZ(pi) matches CX under basis change",
+         lambda qc, q: (qc.x(q[0]), qc.h(q[1]), qc.crz(np.pi, q[0], q[1]), qc.h(q[1])),
+         (1, 1)),
+        ("CU1(pi) behaves like CZ",
+         lambda qc, q: (qc.x(q[0]), qc.h(q[1]), qc.cu1(np.pi, q[0], q[1]), qc.h(q[1])),
+         (1, 1)),
+        ("CY flips target when control is |1>",
+         lambda qc, q: (qc.x(q[0]), qc.cy(q[0], q[1])),
+         (1, 1)),
+        ("CSX squared equals CX",
+         lambda qc, q: (qc.x(q[0]), qc.csx(q[0], q[1]), qc.csx(q[0], q[1])),
+         (1, 1)),
+        ("CP(pi) conjugated by H gives CX",
+         lambda qc, q: (qc.x(q[0]), qc.h(q[1]), qc.cp(np.pi, q[0], q[1]), qc.h(q[1])),
+         (1, 1)),
+        ("iSWAP swaps |01>",
+         lambda qc, q: (qc.x(q[0]), qc.iswap(q[0], q[1])),
+         (0, 1)),
+        ("SWAP exchanges qubits", 
+         lambda qc, q: (qc.x(q[0]), qc.swap(q[0], q[1])),
+         (0, 1)),
+        ("RXX(pi) moves |00> to |11>",
+         lambda qc, q: qc.rxx(np.pi, q[0], q[1]),
+         (1, 1)),
+        ("RYY(pi) moves |00> to |11>",
+         lambda qc, q: qc.ryy(np.pi, q[0], q[1]),
+         (1, 1)),
+        ("RZZ(pi) matches RXX(pi) under H conjugation",
+         lambda qc, q: (qc.h(q[0]), qc.h(q[1]), qc.rzz(np.pi, q[0], q[1]), qc.h(q[0]), qc.h(q[1])),
+         (1, 1)),
+    ],
+)
+def test_two_qubit_gate_identities(simulator, description, builder, expected_bits):
+    qc = Circuit()
+    q = qc.allocate(2)
+    builder(qc, q)
+    qc.measure(q[0], q[1])
+
+    shots = 256
+    counts = run_circuit_with_counts(simulator, qc, shots)
+    expected_key = expected_key_from_bits(expected_bits)
+    assert counts == {expected_key: shots}, f"{description} failed with counts {counts}"
+
+
+@pytest.mark.parametrize(
+    "description, builder, expected_bits",
+    [
+        ("CCX flips target when both controls are |1>",
+         lambda qc, q: (qc.x(q[0]), qc.x(q[1]), qc.ccx(q[0], q[1], q[2])),
+         (1, 1, 1)),
+        ("CSWAP swaps targets when control is |1>",
+         lambda qc, q: (qc.x(q[0]), qc.x(q[1]), qc.cswap(q[0], q[1], q[2])),
+         (1, 0, 1)),
+        ("CCZ via H equals CCX",
+         lambda qc, q: (qc.x(q[0]), qc.x(q[1]), qc.h(q[2]), qc.ccz(q[0], q[1], q[2]), qc.h(q[2])),
+         (1, 1, 1)),
+    ],
+)
+def test_three_qubit_gate_identities(simulator, description, builder, expected_bits):
+    qc = Circuit()
+    q = qc.allocate(3)
+    builder(qc, q)
+    qc.measure(q[0], q[1], q[2])
+
+    shots = 256
+    counts = run_circuit_with_counts(simulator, qc, shots)
+    expected_key = expected_key_from_bits(expected_bits)
+    assert counts == {expected_key: shots}, f"{description} failed with counts {counts}"
 
 def test_conditional_operations():
     print("\n--- Testing conditional operations ---")

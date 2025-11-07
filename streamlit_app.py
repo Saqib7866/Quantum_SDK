@@ -272,11 +272,11 @@ with Circuit() as qc:
         st.subheader("Quick References")
         st.info("💡 Use `qc.` to access circuit methods. Example: `qc.h(0)`")
         gate_sets = {
-            "Single-Qubit": "- `h(q)`: Hadamard\n- `x(q)`: Pauli-X (NOT)\n- `y(q)`: Pauli-Y\n- `z(q)`: Pauli-Z",
-            "Phase": "- `s(q)`: Phase Gate\n- `sdg(q)`: S-dagger\n- `t(q)`: T Gate\n- `tdg(q)`: T-dagger",
+            "Single-Qubit": "- `h(q)`: Hadamard\n- `x(q)`: Pauli-X (NOT)\n- `sx(q)`: √X\n- `sxdg(q)`: √X†\n- `y(q)`: Pauli-Y\n- `z(q)`: Pauli-Z",
+            "Phase": "- `s(q)`: Phase Gate\n- `sdg(q)`: S-dagger\n- `t(q)`: T Gate\n- `tdg(q)`: T-dagger\n- `p(θ, q)`: Phase shift",
             "Rotation": "- `rx(θ, q)`\n- `ry(θ, q)`\n- `rz(θ, q)`",
-            "Two-Qubit": "- `cx(c, t)`: CNOT\n- `cz(c, t)`\n- `swap(q1, q2)`",
-            "Three-Qubit": "- `ccx(c1, c2, t)`: Toffoli\n- `cswap(c, t1, t2)`: Fredkin"
+            "Two-Qubit": "- `cx(c, t)`: CNOT\n- `cy(c, t)`\n- `csx(c, t)`\n- `cp(θ, c, t)`\n- `cz(c, t)`\n- `swap(q1, q2)`\n- `iswap(q1, q2)`",
+            "Three-Qubit": "- `ccx(c1, c2, t)`: Toffoli\n- `ccz(c1, c2, t)`\n- `cswap(c, t1, t2)`: Fredkin"
         }
         for name, text in gate_sets.items():
             with st.expander(name):
