@@ -400,15 +400,31 @@ def main():
         if 'shots' not in st.session_state:
             st.session_state.shots = default_shots
             
-        shots = st.number_input(
+        # Single slider for shots selection
+        st.session_state.shots = st.slider(
             "Number of Shots",
             min_value=1,
             max_value=max_shots,
             value=st.session_state.get('shots', default_shots),
-            help=f"Number of times to run the circuit (max {max_shots} based on hardware)",
-            key="shots_input"
+            step=100,
+            help=f"Number of times to run the circuit (1-{max_shots} based on hardware)",
+            key="shots_slider"
         )
-        st.session_state.shots = min(shots, max_shots)  # Ensure it doesn't exceed max_shots
+        
+        # Show current shots value with max shots info
+        st.caption(f"Running simulation with {st.session_state.shots} shots (max allowed: {max_shots})")
+        
+        # Add a button to re-run simulation with new shots
+        if st.button("🔄 Update Shots & Rerun", use_container_width=True):
+            if 'circuit' in st.session_state and st.session_state.circuit is not None:
+                with st.spinner(f"Rerunning simulation with {st.session_state.shots} shots..."):
+                    if 'simulation_results' in st.session_state:
+                        del st.session_state.simulation_results
+                    if 'bell_results' in st.session_state:
+                        del st.session_state.bell_results
+                    if 'qft_results' in st.session_state:
+                        del st.session_state.qft_results
+                    st.rerun()
         
         # Add circuit controls
         col1, col2 = st.columns(2)
@@ -479,8 +495,11 @@ def main():
                 plt.close(fig)
             
             if st.button("Run Bell State Simulation"):
-                with st.spinner("Running Bell state simulation..."):
-                    results = run_circuit_simulation(circuit)
+                with st.spinner(f"Running Bell state simulation with {st.session_state.get('shots', 1024)} shots (max allowed: {HARDWARE_CONFIG.get('max_shots', 8192)})"):
+                    results = run_circuit_simulation(
+                        circuit,
+                        shots=st.session_state.get('shots', 1024)
+                    )
                     st.session_state.bell_results = results
         
         # Show results if available
@@ -537,8 +556,11 @@ def main():
                 plt.close(fig)
             
             if st.button("Run QFT Simulation"):
-                with st.spinner("Running QFT simulation..."):
-                    results = run_circuit_simulation(full_circuit)
+                with st.spinner(f"Running QFT simulation with {st.session_state.get('shots', 1024)} shots (max allowed: {HARDWARE_CONFIG.get('max_shots', 8192)})"):
+                    results = run_circuit_simulation(
+                        full_circuit,
+                        shots=st.session_state.get('shots', 1024)
+                    )
                     st.session_state.qft_results = results
         
         # Show results if available
