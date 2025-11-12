@@ -13,7 +13,7 @@
     "cx": 0.99,
     "h": 0.998,
     "t": 0.999,
-    "tdg": 0.999
+    "tdg": 0.998
   },
   "simulator": false,
   "local": true,
