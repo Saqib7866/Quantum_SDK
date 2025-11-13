@@ -45,8 +45,8 @@ from qx_ir import Circuit, Op, Program, LocalBackend
 
 # Create a circuit
 circuit = Circuit(n_qubits=2)
-circuit.add_instruction(Op('h', [0]))
-circuit.add_instruction(Op('cx', [0, 1]))
+circuit.add_op(Op('h', [0]))
+circuit.add_op(Op('cx', [0, 1]))
 
 # Create a program
 program = Program([circuit], {'shots': 1000})
