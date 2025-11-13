@@ -57,3 +57,20 @@ test_*.py
 # Local configuration
 config.ini
 secrets.ini
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Byte-compiled / optimized / DLL files
+*.pyc
+*.pyo
+*.pyd
+*.so
+*.dll
+*.dylib
+*.pyi
+*.pyz
+*.pyw
+*.pyc
