@@ -5,12 +5,13 @@ A quantum computing framework for circuit execution and analysis.
 ## Installation
 
 1. Clone the repository:
-   ```bash
-   git clone https://github.com/yourusername/zenaquantum.git
-   cd zenaquantum
-   ```
 
+   ```bash
+   git clone https://github.com/Saqib7866/Quantum_SDK.git
+   cd Quantum_SDK
+   ```
 2. Install in development mode:
+
    ```bash
    pip install -e .
    ```
@@ -20,16 +21,19 @@ A quantum computing framework for circuit execution and analysis.
 ### Command Line Interface
 
 Run a quantum circuit:
+
 ```bash
 qx run test_circuits/bell.json --shots 1000
 ```
 
 Check job status:
+
 ```bash
 qx status [JOB_ID]
 ```
 
 Generate a report for a job:
+
 ```bash
 qx report JOB_ID
 ```
