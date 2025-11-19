@@ -2,6 +2,7 @@
 
 DEFAULT_SHOTS = 1024
 DEFAULT_NOISE_LEVEL = 0.0
+DEFAULT_MAX_QUBITS = 5
 
 # Backend configurations
 BACKENDS = {
@@ -9,8 +10,4 @@ BACKENDS = {
         "description": "A simple local statevector simulator.",
         "noise_model": True
     },
-    "zenaquantum-alpha": {
-        "description": "ZenaQuantum's high-performance simulator.",
-        "noise_model": True
-    }
 }

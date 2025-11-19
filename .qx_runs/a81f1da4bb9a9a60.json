@@ -1,7 +1,7 @@
 {
-  "job_id": "job-b4836f05",
+  "job_id": "job-b1331b15",
   "run_id": "a81f1da4bb9a9a60",
-  "created_at": "2025-11-06T14:39:38.627940+00:00",
+  "created_at": "2025-11-19T11:25:33.613873+00:00",
   "counts": {
     "100": 5,
     "000": 5
@@ -15,8 +15,26 @@
       "oneq_error": 0.0,
       "twoq_error": 0.0
     },
+    "oneq_gate_counts": [
+      1,
+      0,
+      0
+    ],
+    "twoq_gate_counts": [
+      0,
+      0,
+      0
+    ],
+    "effective_flip_probabilities": {
+      "oneq": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "twoq_event": 0.0
+    },
     "target_name": "sim-local",
-    "run_started_at": "2025-11-06T14:39:38.627849+00:00",
+    "run_started_at": "2025-11-19T11:25:33.613737+00:00",
     "seed": 123
   }
 }

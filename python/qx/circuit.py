@@ -39,8 +39,9 @@ Advanced Usage:
     - Circuit visualization (when visualization tools are available)
 """
 
-from typing import Tuple, Union, List, Optional, Dict, Any, Sequence, overload
+from typing import Tuple, Union, List, Optional, Dict, Any, Sequence, overload, Callable
 from dataclasses import dataclass
+from copy import deepcopy
 from .ir import Program, Op
 from .errors import (
     CircuitError,
@@ -48,6 +49,8 @@ from .errors import (
     MeasurementError,
     GateError
 )
+from .analysis import CircuitAnalysis
+from .visualization import draw
 
 class Circuit:
     """
@@ -61,9 +64,21 @@ class Circuit:
         _prog (Program): The internal representation of the quantum program.
     """
     
-    def __init__(self):
-        """Initialize a new quantum circuit."""
-        self._prog = Program(n_qubits=0, ops=[], n_clbits=0, metadata={})
+    def __init__(self, n_qubits_or_name=None, name=None):
+        """Initialize a new quantum circuit.
+
+        Args:
+            n_qubits_or_name: Number of qubits to allocate or name for the circuit.
+            name: Optional name for the circuit (if first arg is n_qubits).
+        """
+        if isinstance(n_qubits_or_name, int):
+            n_qubits = n_qubits_or_name
+            self._prog = Program(n_qubits=n_qubits, ops=[], n_clbits=0, metadata={})
+            self.name = name or f"circuit_{id(self)}"
+        else:
+            self._prog = Program(n_qubits=0, ops=[], n_clbits=0, metadata={})
+            self.name = n_qubits_or_name or name or f"circuit_{id(self)}"
+        self._analysis = None
 
     def allocate(self, n: int) -> Tuple[int, ...]:
         """
@@ -92,17 +107,21 @@ class Circuit:
 
     def _validate_qubit(self, q: int) -> None:
         """Validate that a qubit index is within bounds.
-        
+
+        If the qubit index is beyond the current number of qubits, automatically allocate more qubits.
+
         Args:
             q: Qubit index to validate.
-            
+
         Raises:
-            QubitOutOfRangeError: If the qubit index is out of range.
+            QubitOutOfRangeError: If the qubit index is negative.
         """
-        if not 0 <= q < self._prog.n_qubits:
+        if q < 0:
             raise QubitOutOfRangeError(
                 f"Qubit index {q} out of range [0, {self._prog.n_qubits - 1}]"
             )
+        if q >= self._prog.n_qubits:
+            self.allocate(q - self._prog.n_qubits + 1)
 
     def _validate_qubits(self, *qubits: int) -> None:
         """Validate multiple qubit indices.
@@ -481,8 +500,197 @@ class Circuit:
     @property
     def program(self) -> Program:
         return self._prog
+        
+    @property
+    def analysis(self) -> 'CircuitAnalysis':
+        """Get the circuit analysis object."""
+        if self._analysis is None:
+            self._analysis = CircuitAnalysis(self)
+        return self._analysis
+        
+    @property
+    def qubits(self):
+        """Return a tuple of allocated qubit indices."""
+        return tuple(range(self._prog.n_qubits))
 
-def __enter__(self): return self
-def __exit__(self, exc_type, exc, tb): return False
+    def depth(self) -> int:
+        """Return the circuit depth."""
+        return self.analysis.depth()
+        
+    def count_ops(self) -> Dict[str, int]:
+        """Count operations in the circuit."""
+        return self.analysis.count_ops()
+        
+    def draw(self, output: str = 'text', **kwargs):
+        """Draw the circuit.
+        
+        Args:
+            output: Output format ('text', 'latex', 'mpl').
+            **kwargs: Additional drawing options.
+            
+        Returns:
+            The circuit drawing in the specified format.
+        """
+        return draw(self, output, **kwargs)
+        
+    def compose(self, other: 'Circuit', qubits: Optional[List[int]] = None) -> 'Circuit':
+        """Compose with another circuit.
+        
+        Args:
+            other: The other circuit to compose with.
+            qubits: Qubit mapping. If None, qubits are mapped 1:1.
+            
+        Returns:
+            A new circuit with the composition.
+        """
+        if qubits is not None and len(qubits) != other.program.n_qubits:
+            raise ValueError("Number of qubits in mapping must match the other circuit")
+            
+        # Create a copy of this circuit
+        new_circuit = deepcopy(self)
+        
+        # Add qubits if needed
+        if qubits is None:
+            # Simple 1:1 mapping
+            if self.program.n_qubits < other.program.n_qubits:
+                new_circuit.allocate(other.program.n_qubits - self.program.n_qubits)
+            qubit_map = list(range(other.program.n_qubits))
+        else:
+            # Use provided mapping
+            qubit_map = qubits
+            max_qubit = max(qubits)
+            if self.program.n_qubits <= max_qubit:
+                new_circuit.allocate(max_qubit - self.program.n_qubits + 1)
+        
+        # Add operations from the other circuit
+        for op in other.program.ops:
+            # Map qubits
+            mapped_qubits = tuple(qubit_map[q] for q in op.qubits)
+            
+            # Create new operation
+            new_op = Op(
+                name=op.name,
+                qubits=mapped_qubits,
+                params=op.params,
+                clbits=op.clbits,
+                condition=op.condition
+            )
+            new_circuit.program.add(new_op)
+        
+        # Update classical bits
+        new_circuit.program.n_clbits = max(
+            self.program.n_clbits,
+            other.program.n_clbits
+        )
+        
+        return new_circuit
+        
+    def to_gate(self, name: Optional[str] = None) -> 'Gate':
+        """Convert the circuit to a gate.
+        
+        Args:
+            name: Optional name for the gate.
+            
+        Returns:
+            A Gate object representing this circuit.
+        """
+        return Gate(self, name=name or f"{self.name}_gate")
+        
+    def inverse(self) -> 'Circuit':
+        """Return the inverse of the circuit."""
+        # Create a new circuit with the same number of qubits
+        inv_circuit = Circuit(name=f"{self.name}_inverse")
+        if self.program.n_qubits > 0:
+            inv_circuit.allocate(self.program.n_qubits)
+        
+        # Add operations in reverse order with inverted gates
+        for op in reversed(self.program.ops):
+            if op.name in ['h', 'x', 'y', 'z', 'sx', 'sxdg']:
+                # Self-inverse gates
+                inv_circuit.program.add(op)
+            elif op.name == 's':
+                inv_circuit.program.add(Op('sdg', op.qubits, op.params, op.clbits, op.condition))
+            elif op.name == 'sdg':
+                inv_circuit.program.add(Op('s', op.qubits, op.params, op.clbits, op.condition))
+            elif op.name == 't':
+                inv_circuit.program.add(Op('tdg', op.qubits, op.params, op.clbits, op.condition))
+            elif op.name == 'tdg':
+                inv_circuit.program.add(Op('t', op.qubits, op.params, op.clbits, op.condition))
+            elif op.name == 'rx':
+                inv_circuit.program.add(Op('rx', op.qubits, (-op.params[0],), op.clbits, op.condition))
+            elif op.name == 'ry':
+                inv_circuit.program.add(Op('ry', op.qubits, (-op.params[0],), op.clbits, op.condition))
+            elif op.name == 'rz':
+                inv_circuit.program.add(Op('rz', op.qubits, (-op.params[0],), op.clbits, op.condition))
+            elif op.name in ['cx', 'cy', 'cz', 'swap']:
+                inv_circuit.program.add(op)  # Self-inverse two-qubit gates
+            else:
+                # For other gates, just add them as is (may not be correct for all cases)
+                inv_circuit.program.add(op)
+        
+        return inv_circuit
+
+def __enter__(self): 
+    return self
+    
+def __exit__(self, exc_type, exc, tb): 
+    return False
+    
+# Add methods to Circuit class
 Circuit.__enter__ = __enter__
-Circuit.__exit__  = __exit__
+Circuit.__exit__ = __exit__
+
+# Add gate class
+class Gate:
+    """A gate that can be applied to a circuit."""
+    
+    def __init__(self, circuit: Circuit, name: Optional[str] = None):
+        """Initialize a gate from a circuit.
+        
+        Args:
+            circuit: The circuit to convert to a gate.
+            name: Optional name for the gate.
+        """
+        self.circuit = circuit
+        self.name = name or f"gate_{id(self)}"
+        self.num_qubits = circuit.program.n_qubits
+    
+    def __call__(self, *qubits: int) -> None:
+        """Apply the gate to the given qubits."""
+        if len(qubits) != self.num_qubits:
+            raise ValueError(f"Gate requires {self.num_qubits} qubits, got {len(qubits)}")
+        
+        # Create a copy of the circuit with the qubit mapping
+        mapped_circuit = Circuit()
+        qubit_map = {i: q for i, q in enumerate(qubits)}
+        
+        # Add operations with mapped qubits
+        for op in self.circuit.program.ops:
+            mapped_qubits = tuple(qubit_map[q] for q in op.qubits)
+            mapped_op = Op(
+                name=op.name,
+                qubits=mapped_qubits,
+                params=op.params,
+                clbits=op.clbits,
+                condition=op.condition
+            )
+            mapped_circuit.program.add(mapped_op)
+        
+        # Add the operations to the current circuit
+        current_circuit = Circuit._current_circuit
+        if current_circuit is None:
+            raise RuntimeError("Gate must be used within a circuit context")
+            
+        for op in mapped_circuit.program.ops:
+            current_circuit.program.add(op)
+    
+    def to_circuit(self) -> Circuit:
+        """Convert the gate back to a circuit."""
+        return deepcopy(self.circuit)
+    
+    def inverse(self) -> 'Gate':
+        """Return the inverse gate."""
+        return Gate(self.circuit.inverse(), name=f"{self.name}_dg")
+
+# Add circuit context management
+Circuit._current_circuit = None

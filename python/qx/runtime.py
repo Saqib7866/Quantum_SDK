@@ -60,6 +60,7 @@ class Job:
 
 # ---------- core synchronous run ----------
 def run(circuit, backend_desc:dict, shots:int=1024, params:Optional[Dict[str,float]]=None, seed:Optional[int]=None)->Job:
+
     caps = backend_desc["caps"]
     name = backend_desc.get("name","unknown-target")
     prog = compile_pipeline(circuit.program, caps)

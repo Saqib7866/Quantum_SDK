@@ -677,3 +677,154 @@ class LocalSimulator:
             "effective_flip_probabilities": {"oneq": p1, "twoq_event": p2_event},
         }
         return dict(outcomes), meta
+
+    def get_statevector(self, prog: Program):
+        """Get the statevector after applying all operations except measurements.
+
+        Args:
+            prog: The quantum program to simulate.
+
+        Returns:
+            numpy.ndarray: The final statevector.
+        """
+        # validate IR before execution
+        try:
+            prog.validate()
+        except Exception:
+            raise
+
+        # Simulator limit: consult central config
+        _max_q = get_max_qubits()
+        if prog.n_qubits > _max_q:
+            raise ValueError(f"Simulator limited to {_max_q} qubits (requested {prog.n_qubits})")
+
+        n = prog.n_qubits
+        psi = np.zeros(2**n, dtype=complex)
+        psi[0] = 1.0
+
+        # Apply all quantum operations except measurements
+        for op in prog.ops:
+            if op.condition is not None:
+                continue  # Skip conditional operations for statevector
+
+            if op.name in ("h", "x", "y", "z", "rx", "ry", "rz", "sx", "sxdg"):
+                if op.name == "h":  U1 = H
+                elif op.name == "x": U1 = X
+                elif op.name == "y": U1 = Y
+                elif op.name == "z": U1 = Z
+                elif op.name == "rx": U1 = _rot("x", op.params[0])
+                elif op.name == "ry": U1 = _rot("y", op.params[0])
+                elif op.name == "rz": U1 = _rot("z", op.params[0])
+                elif op.name == "sx": U1 = SX
+                elif op.name == "sxdg": U1 = SXDAG
+                U = _one_to_n(U1, n, op.qubits[0])
+                psi = U @ psi
+
+            elif op.name == "cx":
+                U = _cx(n, op.qubits[0], op.qubits[1])
+                psi = U @ psi
+
+            elif op.name == "ccx":
+                U = _ccx(n, op.qubits[0], op.qubits[1], op.qubits[2])
+                psi = U @ psi
+
+            elif op.name == "ccz":
+                U = _ccz(n, op.qubits[0], op.qubits[1], op.qubits[2])
+                psi = U @ psi
+
+            elif op.name == "swap":
+                a, b = op.qubits
+                U = _cx(n, a, b); psi = U @ psi
+                U = _cx(n, b, a); psi = U @ psi
+                U = _cx(n, a, b); psi = U @ psi
+
+            elif op.name == "iswap":
+                q1, q2 = op.qubits
+                U = _iswap(n, q1, q2)
+                psi = U @ psi
+
+            elif op.name == "cu1":
+                U = _cu1(n, op.params[0], op.qubits[0], op.qubits[1])
+                psi = U @ psi
+
+            elif op.name == "cp":
+                U = _cp(n, op.params[0], op.qubits[0], op.qubits[1])
+                psi = U @ psi
+
+            # General single-qubit unitaries
+            elif op.name in ("u1", "u2", "u3", "p"):
+                if op.name == "u1" or op.name == "p":
+                    U = _u1(n, op.params[0], op.qubits[0])
+                elif op.name == "u2":
+                    U = _u2(n, op.params[0], op.params[1], op.qubits[0])
+                else:  # u3
+                    U = _u3(n, op.params[0], op.params[1], op.params[2], op.qubits[0])
+                psi = U @ psi
+
+            # Phase gates
+            elif op.name == "s":
+                U = _s(n, op.qubits[0])
+                psi = U @ psi
+
+            elif op.name == "sdg":
+                U = _sdg(n, op.qubits[0])
+                psi = U @ psi
+
+            elif op.name == "t":
+                U = _t(n, op.qubits[0])
+                psi = U @ psi
+
+            elif op.name == "tdg":
+                U = _tdg(n, op.qubits[0])
+                psi = U @ psi
+
+            # Controlled rotation gates
+            elif op.name == "crx":
+                U = _crx(n, op.params[0], op.qubits[0], op.qubits[1])
+                psi = U @ psi
+
+            elif op.name == "cry":
+                U = _cry(n, op.params[0], op.qubits[0], op.qubits[1])
+                psi = U @ psi
+
+            elif op.name == "crz":
+                U = _crz(n, op.params[0], op.qubits[0], op.qubits[1])
+                psi = U @ psi
+
+            # Multi-qubit gates
+            elif op.name == "cswap":
+                U = _cswap(n, op.qubits[0], op.qubits[1], op.qubits[2])
+                psi = U @ psi
+
+            elif op.name == "rxx":
+                U = _rxx(n, op.params[0], op.qubits[0], op.qubits[1])
+                psi = U @ psi
+
+            elif op.name == "ryy":
+                U = _ryy(n, op.params[0], op.qubits[0], op.qubits[1])
+                psi = U @ psi
+
+            elif op.name == "rzz":
+                U = _rzz(n, op.params[0], op.qubits[0], op.qubits[1])
+                psi = U @ psi
+
+            elif op.name == "cz":
+                U = _cz(n, op.qubits[0], op.qubits[1])
+                psi = U @ psi
+
+            elif op.name == "cy":
+                U = _cy(n, op.qubits[0], op.qubits[1])
+                psi = U @ psi
+
+            elif op.name == "csx":
+                U = _csx(n, op.qubits[0], op.qubits[1])
+                psi = U @ psi
+
+            elif op.name == "measure":
+                # Skip measurement operations for statevector
+                continue
+
+            else:
+                raise ValueError(f"Unsupported op for statevector: {op.name}")
+
+        return psi

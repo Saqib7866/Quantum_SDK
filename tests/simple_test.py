@@ -6,9 +6,8 @@ import numpy as np
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), 'python')))
 
 # Now import the required modules
-from qx.circuit import Circuit
-from qx.sim.local import LocalSimulator
-from qx.sim.zenaquantum_alpha import ZenaQuantumAlphaSimulator
+from python.qx.circuit import Circuit
+from python.qx.sim.local import LocalSimulator
 
 def run_bell_pair_test(simulator, name):
     print(f"\n--- {name}: Testing Bell pair circuit ---")
@@ -120,10 +119,9 @@ def main():
     local_bell = run_bell_pair_test(local_sim, "LocalSimulator")
     local_single = run_single_qubit_test(local_sim, "LocalSimulator")
     
-    # Test ZenaQuantumAlphaSimulator
-    zena_sim = ZenaQuantumAlphaSimulator()
-    zena_bell = run_bell_pair_test(zena_sim, "ZenaQuantumAlphaSimulator")
-    zena_single = run_single_qubit_test(zena_sim, "ZenaQuantumAlphaSimulator")
+    # ZenaQuantum simulator removed
+    zena_bell = True  # Skip ZenaQuantum tests
+    zena_single = True  # Skip ZenaQuantum tests
     
     # Test conditional operations
     cond_test = test_conditional_operations()
@@ -131,13 +129,12 @@ def main():
     # Print summary
     print("\n=== Test Summary ===")
     print(f"LocalSimulator Bell pair test: {'PASSED' if local_bell else 'FAILED'}")
+    print(f"LocalSimulator Bell pair test: {'PASSED' if local_bell else 'FAILED'}")
     print(f"LocalSimulator single-qubit test: {'PASSED' if local_single else 'FAILED'}")
-    print(f"ZenaQuantumAlphaSimulator Bell pair test: {'PASSED' if zena_bell else 'FAILED'}")
-    print(f"ZenaQuantumAlphaSimulator single-qubit test: {'PASSED' if zena_single else 'FAILED'}")
     print(f"Conditional operations test: {'PASSED' if cond_test else 'FAILED'}")
     
     # Check if all tests passed
-    all_passed = all([local_bell, local_single, zena_bell, zena_single, cond_test])
+    all_passed = all([local_bell, local_single, cond_test])
     if all_passed:
         print("\n🎉 All tests passed successfully!")
         return 0
