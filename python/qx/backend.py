@@ -4,11 +4,8 @@ from .sim.local import LocalSimulator
 from .errors import QXBackendError
 from .config import get_max_qubits
 
-# Try importing optional hardware emulator
-try:
-    from .sim.zenaquantum_alpha import ZenaQuantumAlphaSimulator
-except ImportError:
-    ZenaQuantumAlphaSimulator = None
+# Only using LocalSimulator
+ZenaQuantumAlphaSimulator = None
 
 # default registry: use config.get_max_qubits() for the reported cap
 _REG: Dict[str, dict] = {
@@ -35,18 +32,6 @@ _REG: Dict[str, dict] = {
         },
         "runner": LocalSimulator(noise={})
     },
-    "zenaquantum-alpha": {
-        "name": "zenaquantum-alpha",
-        "type": "sim",
-        "caps": {
-            "n_qubits_max": 12,
-            "native_gates": {"h", "x", "rz", "cx", "measure"},
-            "connectivity": "linear",
-            "durations_ns": {"h": 25, "x": 20, "rz": 15, "cx": 220, "measure": 400},
-            "noise": {"readout_error": 0.02, "oneq_error": 0.001, "twoq_error": 0.01}
-        },
-        "runner": ZenaQuantumAlphaSimulator()
-    }
 }
 
 
@@ -66,15 +51,7 @@ def backend(name: str, noise_level: float = 0.0) -> dict:
         durations = profile.get("durations_ns", {})
         sim_name = profile.get("name", os.path.basename(name).split('.')[0])
         
-        if sim_name.lower() == "zenaquantum-alpha" and ZenaQuantumAlphaSimulator is not None:
-            runner = ZenaQuantumAlphaSimulator(
-                noise=noise, 
-                durations=durations, 
-                base_latency=noise.get("lat", 0.5), 
-                lanes=noise.get("lanes", 1)
-            )
-        else:
-            runner = LocalSimulator(noise=noise)
+        runner = LocalSimulator(noise=noise)
 
         return {
             "name": sim_name,
@@ -105,8 +82,6 @@ def backend(name: str, noise_level: float = 0.0) -> dict:
     # Instantiate the correct simulator with the noise model
     if name == "sim-local":
         backend_config["runner"] = LocalSimulator(noise=noise_model)
-    elif name == "zenaquantum-alpha" and ZenaQuantumAlphaSimulator is not None:
-        backend_config["runner"] = ZenaQuantumAlphaSimulator(noise=noise_model)
     
     # Update the capabilities dictionary to reflect the current noise model
     backend_config["caps"] = backend_config["caps"].copy()

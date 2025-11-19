@@ -64,14 +64,20 @@ class Circuit:
         _prog (Program): The internal representation of the quantum program.
     """
     
-    def __init__(self, name: Optional[str] = None):
+    def __init__(self, n_qubits_or_name=None, name=None):
         """Initialize a new quantum circuit.
-        
+
         Args:
-            name: Optional name for the circuit.
+            n_qubits_or_name: Number of qubits to allocate or name for the circuit.
+            name: Optional name for the circuit (if first arg is n_qubits).
         """
-        self._prog = Program(n_qubits=0, ops=[], n_clbits=0, metadata={})
-        self.name = name or f"circuit_{id(self)}"
+        if isinstance(n_qubits_or_name, int):
+            n_qubits = n_qubits_or_name
+            self._prog = Program(n_qubits=n_qubits, ops=[], n_clbits=0, metadata={})
+            self.name = name or f"circuit_{id(self)}"
+        else:
+            self._prog = Program(n_qubits=0, ops=[], n_clbits=0, metadata={})
+            self.name = n_qubits_or_name or name or f"circuit_{id(self)}"
         self._analysis = None
 
     def allocate(self, n: int) -> Tuple[int, ...]:
@@ -502,6 +508,11 @@ class Circuit:
             self._analysis = CircuitAnalysis(self)
         return self._analysis
         
+    @property
+    def qubits(self):
+        """Return a tuple of allocated qubit indices."""
+        return tuple(range(self._prog.n_qubits))
+
     def depth(self) -> int:
         """Return the circuit depth."""
         return self.analysis.depth()

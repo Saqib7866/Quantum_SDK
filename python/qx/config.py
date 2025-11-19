@@ -6,27 +6,31 @@ environment handling and defaults centralized.
 """
 from typing import Optional
 import os
+import sys
 
+# Configuration values - imported from main config when available
 _DEFAULT_MAX_QUBITS = 5
+_default_shots: int = 1024
+
+# Try to import from main config to override defaults
+try:
+    # Add parent directory to path to find main config
+    import sys
+    import os
+    parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if parent_dir not in sys.path:
+        sys.path.insert(0, parent_dir)
+    import config
+    _DEFAULT_MAX_QUBITS = getattr(config, 'DEFAULT_MAX_QUBITS', _DEFAULT_MAX_QUBITS)
+    _default_shots = getattr(config, 'DEFAULT_SHOTS', _default_shots)
+except (ImportError, AttributeError):
+    # Use fallback defaults if main config not available
+    pass
+
 # in-memory overrides (preferred when set programmatically)
 _override_max_q: Optional[int] = None
-_default_shots: int = 1024
 _runs_dir: Optional[str] = None
 _logging_level: Optional[str] = None
-
-
-def get_max_qubits() -> int:
-    """Return the configured max qubits.
-
-    Priority: in-memory override > QX_MAX_QUBITS env var > default.
-    """
-    global _override_max_q
-    if _override_max_q is not None:
-        return _override_max_q
-    try:
-        return int(os.environ.get("QX_MAX_QUBITS", _DEFAULT_MAX_QUBITS))
-    except Exception:
-        return _DEFAULT_MAX_QUBITS
 
 
 def set_max_qubits(n: Optional[int]):
@@ -43,6 +47,20 @@ def set_max_qubits(n: Optional[int]):
         _override_max_q = None
     else:
         _override_max_q = int(n)
+
+
+def get_max_qubits() -> int:
+    """Return the configured max qubits.
+
+    Priority: in-memory override > QX_MAX_QUBITS env var > default.
+    """
+    global _override_max_q
+    if _override_max_q is not None:
+        return _override_max_q
+    try:
+        return int(os.environ.get("QX_MAX_QUBITS", _DEFAULT_MAX_QUBITS))
+    except Exception:
+        return _DEFAULT_MAX_QUBITS
 
 
 def get_default_shots() -> int:
@@ -85,6 +103,6 @@ def set_logging_level(level: Optional[str]):
 def reset_all():
     """Reset all in-memory overrides (useful in tests)."""
     set_max_qubits(None)
-    set_default_shots(1024)
+    set_default_shots(_default_shots)
     set_runs_dir(None)
     set_logging_level(None)

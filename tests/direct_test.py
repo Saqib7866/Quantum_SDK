@@ -23,7 +23,6 @@ try:
     # Now import our modules
     from qx.ir import Program, Op
     from qx.sim.local import LocalSimulator
-    from qx.sim.zenaquantum_alpha import ZenaQuantumAlphaSimulator
     
     print("✓ Successfully imported required modules")
     
@@ -66,9 +65,8 @@ try:
         'twoq_error': 0.05
     }
     
-    zena_sim = ZenaQuantumAlphaSimulator(noise=noise_params)
-    print("Running simulation with ZenaQuantumAlphaSimulator...")
-    counts, meta = zena_sim.execute(prog, shots=1000)
+    # ZenaQuantum simulator removed
+    print("ZenaQuantum simulator removed - skipping test")
     
     print("ZenaQuantumAlphaSimulator results:")
     print(f"Counts: {counts}")

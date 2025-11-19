@@ -7,10 +7,9 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), 'pyth
 
 # Import only the necessary modules
 try:
-    from qx.circuit import Circuit
-    from qx.sim.local import LocalSimulator
-    from qx.sim.zenaquantum_alpha import ZenaQuantumAlphaSimulator
-    from qx.ir import Program, Op
+    from python.qx.circuit import Circuit
+    from python.qx.sim.local import LocalSimulator
+    from python.qx.ir import Program, Op
     
     print("✓ Successfully imported all required modules")
     
@@ -36,10 +35,8 @@ try:
     print("✓ LocalSimulator test passed!")
     
     # Test 2: Test ZenaQuantumAlphaSimulator
-    print("\n--- Testing ZenaQuantumAlphaSimulator with Bell pair ---")
-    zena_sim = ZenaQuantumAlphaSimulator()
-    print("Running simulation with ZenaQuantumAlphaSimulator...")
-    counts, meta = zena_sim.execute(qc.program, shots=1000)
+    print("\n--- ZenaQuantum simulator removed ---")
+    print("Skipping ZenaQuantum test")
     
     print("ZenaQuantumAlphaSimulator results:")
     print(f"Counts: {counts}")
