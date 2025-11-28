@@ -156,9 +156,12 @@ class CircuitDrawer:
             n_qubits = self.circuit.program.n_qubits
             
             # Adjust figure size to be wider but more compact per gate
-            fig_width = min(8, 2.0 + len(self.circuit.program.ops) * 0.4)  # Wider but more compact per gate
-            fig_height = max(2.0, n_qubits * 0.7)  # Slightly less vertical spacing
-            fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+            if 'figsize' in self.kwargs:
+                fig, ax = plt.subplots(figsize=self.kwargs['figsize'])
+            else:
+                fig_width = min(8, 2.0 + len(self.circuit.program.ops) * 0.4)  # Wider but more compact per gate
+                fig_height = max(2.0, n_qubits * 0.7)  # Slightly less vertical spacing
+                fig, ax = plt.subplots(figsize=(fig_width, fig_height))
             
             # Draw qubit lines in reverse order (q0 at the top)
             for i in range(n_qubits):
@@ -267,7 +270,8 @@ class CircuitDrawer:
             import numpy as np
 
             # Create figure with Agg backend
-            fig = plt.figure(figsize=(8, 8), dpi=100)
+            figsize = self.kwargs.get('figsize', (8, 8))
+            fig = plt.figure(figsize=figsize, dpi=100)
             ax = fig.add_subplot(111, projection='3d')
 
             class Arrow3D(FancyArrowPatch):
@@ -550,7 +554,8 @@ class CircuitDrawer:
             
             # Create figure and canvas
             dpi = 100
-            fig = Figure(figsize=(8, 8), dpi=dpi)
+            figsize = self.kwargs.get('figsize', (8, 8))
+            fig = Figure(figsize=figsize, dpi=dpi)
             FigureCanvas(fig)  # Create the canvas
             ax = fig.add_subplot(111, projection='3d')
             

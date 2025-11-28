@@ -50,14 +50,14 @@ body { font-family: 'Inter', sans-serif; }
     background-color: #3A6A9A; 
     border-color: #3A6A9A;
 }
-.stTabs [data-baseweb=\"tab-list\"] { gap: 24px; }
-.stTabs [data-baseweb=\"tab\"] { 
+.stTabs [data-baseweb="tab-list"] { gap: 24px; }
+.stTabs [data-baseweb="tab"] { 
     padding: 10px 16px; 
     border-radius: 8px; 
     background-color: #f0f2f6;
     border: none;
 }
-.stTabs [aria-selected=\"true\"] { 
+.stTabs [aria-selected="true"] { 
     background-color: #D3E3FD; 
     color: #1967d2;
 }
@@ -208,12 +208,7 @@ def execute_circuit(code, shots, noise_cfg, backend_name):
         return None
 
 def generate_circuit_diagram(_qc):
-    """Generates a text-based diagram of the quantum circuit.
-
-    This is a fallback implementation that's used when the new draw() method
-    is not available. The new Circuit class provides a more sophisticated
-    visualization through the draw() method.
-    """
+    """Generates a text-based diagram of the quantum circuit."""
     # First try using the new draw() method if available
     if hasattr(_qc, 'draw') and callable(getattr(_qc, 'draw')):
         try:
@@ -298,18 +293,18 @@ def _display_execution_summary(result):
 
 def _get_available_tabs(result):
     """Determine which tabs should be available based on result properties."""
-    tab_titles = ["📊 Histogram", "🔍 Circuit Diagram"]
+    tab_titles = ["📊 Counts", "🔍 Circuit"]
 
     has_analysis = hasattr(result, 'circuit') and hasattr(result.circuit, 'analysis')
     if has_analysis:
-        tab_titles.insert(1, "📈 Analysis")
+        tab_titles.insert(1, "📈 Stats")
 
     n_qubits = result.metadata.get('n_qubits', 0)
     has_single_qubit_viz = (n_qubits == 1)
     if has_single_qubit_viz:
         tab_titles.extend(["🌐 Q-Sphere", "🔄 Phase"])
 
-    tab_titles.append("📋 Details")
+    tab_titles.append("📋 Info")
 
     return tab_titles
 
@@ -317,53 +312,9 @@ def _extract_common_data(result):
     """Extract commonly used data from result."""
     counts = getattr(result, 'counts', {}) or getattr(result, 'get_counts', lambda: {})()
     total_shots = sum(counts.values()) if counts else 0
-    probabilities = {s: (c / total_shots * 100) for s, c in counts.items()} if total_shots > 0 else {}
+    probabilities = {s: (c / total_shots) for s, c in counts.items()} if total_shots > 0 else {}
     n_qubits = getattr(result, 'n_qubits', 0) or len(next(iter(counts.keys()), '')) if counts else 0
     return counts, total_shots, probabilities, n_qubits
-
-def display_results(result):
-    """Displays the results of a quantum circuit execution with enhanced visualization."""
-    _display_execution_summary(result)
-
-    tab_titles = _get_available_tabs(result)
-    tabs = st.tabs(tab_titles)
-
-    counts, total_shots, probabilities, n_qubits = _extract_common_data(result)
-
-    # Display each tab content
-    tab_index = 0
-
-    # Histogram tab (always first)
-    with tabs[tab_index]:
-        _display_histogram_tab(result, probabilities, n_qubits, total_shots, "🌐 Q-Sphere" in tab_titles)
-    tab_index += 1
-
-    # Analysis tab (if available)
-    if "📈 Analysis" in tab_titles:
-        with tabs[tab_index]:
-            _display_analysis_tab(result)
-        tab_index += 1
-
-    # Circuit Diagram tab
-    with tabs[tab_index]:
-        _display_circuit_diagram_tab(result)
-    tab_index += 1
-
-    # Q-Sphere tab (for single qubit)
-    if "🌐 Q-Sphere" in tab_titles:
-        with tabs[tab_index]:
-            _display_qsphere_tab(result)
-        tab_index += 1
-
-    # Phase tab (for single qubit)
-    if "🔄 Phase" in tab_titles:
-        with tabs[tab_index]:
-            _display_phase_tab(result)
-        tab_index += 1
-
-    # Details tab (always last)
-    with tabs[tab_index]:
-        _display_details_tab(result, counts)
 
 def _display_histogram_tab(result, probabilities, n_qubits, total_shots, has_single_qubit_viz):
     """Display the histogram tab with measurement results."""
@@ -372,318 +323,167 @@ def _display_histogram_tab(result, probabilities, n_qubits, total_shots, has_sin
             st.warning("⚠️ No measurement data available to display.")
             return
 
-        all_states = [format(i, f'0{n_qubits}b') for i in range(2**n_qubits)]
-        probs = [probabilities.get(s, 0) for s in all_states]
-
-        # Create histogram
-        fig, ax = plt.subplots(figsize=(8, 4))
-
-        colors = [plt.cm.Blues(0.3 + 0.7 * (p / max(probs) if max(probs) > 0 else 0)) for p in probs]
-        bars = ax.bar(all_states, probs, color=colors, edgecolor='#2E5C8A', linewidth=1.5, alpha=0.8)
-
-        ax.set_ylabel("Probability (%)", fontsize=12, fontweight='bold')
-        ax.set_xlabel("Quantum State", fontsize=12, fontweight='bold')
-        ax.set_title("📊 Measurement Results", fontsize=16, fontweight='bold', pad=20)
-        ax.set_ylim(0, max(110, max(probs) * 1.2))
-
-        plt.xticks(rotation=0, fontsize=11, fontweight='bold')
-        plt.yticks(fontsize=10)
-        ax.grid(axis='y', alpha=0.3)
-        ax.set_axisbelow(True)
-
-        for bar, prob in zip(bars, probs):
-            if prob > 0.1:
-                ax.text(bar.get_x() + bar.get_width() / 2.0, bar.get_height() + 1,
-                        f'{prob:.1f}%', ha='center', va='bottom',
-                        fontsize=10, fontweight='bold', color='#2E5C8A')
-
-        plt.tight_layout()
-        st.pyplot(fig)
-        plt.close(fig)
-
-        # Top outcomes table
-        st.markdown("### 🎯 Top Measurement Outcomes")
-        sorted_outcomes = sorted(result.counts.items(), key=lambda x: x[1], reverse=True)[:8]
-
-        if sorted_outcomes:
-            outcome_data = []
-            for state, count in sorted_outcomes:
-                prob = (count / total_shots) * 100
-                outcome_data.append({
-                    "State": f"|{state}⟩",
-                    "Count": f"{count:,}",
-                    "Probability": f"{prob:.2f}%"
-                })
-            st.table(outcome_data)
-
-        # Bloch sphere for single-qubit
-        if n_qubits == 1 and has_single_qubit_viz:
-            st.markdown("---")
-            try:
-                bloch_fig = result.circuit.draw('bloch')
-                if bloch_fig is not None:
-                    st.subheader("🧲 Bloch Sphere Representation")
-                    st.pyplot(bloch_fig)
-                    plt.close(bloch_fig)
-                    st.caption("*The Bloch sphere shows the quantum state's position in 3D space*")
-            except Exception as e:
-                st.warning(f"Could not generate Bloch sphere: {e}")
-
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            st.subheader("📊 Measurement Probabilities")
+            
+            # Create histogram
+            fig, ax = plt.subplots(figsize=(4, 2.5))
+            
+            # Sort states by binary value
+            sorted_states = sorted(probabilities.keys(), key=lambda x: int(x, 2))
+            probs = [probabilities[s] for s in sorted_states]
+            labels = [f"|{s}⟩" for s in sorted_states]
+            
+            # Create bars with gradient-like colors
+            bars = ax.bar(labels, probs, color='#6c5ce7', alpha=0.8, edgecolor='black', linewidth=1)
+            
+            # Add value labels on top of bars
+            for bar in bars:
+                height = bar.get_height()
+                ax.text(bar.get_x() + bar.get_width()/2., height + 0.01,
+                       f'{height:.1%}',
+                       ha='center', va='bottom', fontsize=9, fontweight='bold')
+            
+            # Customize chart
+            ax.set_ylabel('Probability')
+            ax.set_ylim(0, max(probs) * 1.2)  # Add headroom for labels
+            ax.grid(axis='y', linestyle='--', alpha=0.3)
+            
+            # Clean up spines
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+            
+            st.pyplot(fig, use_container_width=False)
+            
+        with col2:
+            if has_single_qubit_viz:
+                st.subheader("⚛️ Bloch Sphere")
+                try:
+                    # Draw Bloch sphere with compact size
+                    bloch_fig = result.circuit.draw('bloch', figsize=(2.5, 2.5))
+                    st.pyplot(bloch_fig, use_container_width=False)
+                except Exception as e:
+                    st.error(f"Could not generate Bloch sphere: {str(e)}")
+            else:
+                st.info("ℹ️ Bloch sphere is available for single-qubit circuits.")
+                
     except Exception as e:
-        st.error(f"❌ Error generating histogram: {str(e)}")
-        st.info("💡 Make sure matplotlib and numpy are installed: `pip install matplotlib numpy`")
+        st.error(f"Error displaying histogram: {str(e)}")
+
+def _display_analysis_tab(result):
+    """Display circuit analysis metrics."""
+    st.subheader("📈 Circuit Analysis")
     
-    # Show circuit info in a clean way
+    if not hasattr(result, 'circuit'):
+        st.warning("No circuit information available.")
+        return
+
+    circuit = result.circuit
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("#### Operation Distribution")
+        if hasattr(circuit, 'count_ops'):
+            ops = circuit.count_ops()
+            if ops:
+                fig, ax = plt.subplots(figsize=(4, 2))
+                ax.bar(ops.keys(), ops.values(), color='#00b894')
+                ax.set_ylabel('Count')
+                ax.tick_params(axis='x', rotation=45)
+                st.pyplot(fig, use_container_width=False)
+            else:
+                st.info("No operations to analyze.")
+                
+    with col2:
+        st.markdown("#### Qubit Usage")
+        # Simple qubit usage visualization
+        n_qubits = circuit.program.n_qubits
+        usage = [0] * n_qubits
+
+def _display_circuit_diagram_tab(result):
+    """Display the enhanced circuit diagram."""
+    st.subheader("🔍 Circuit Diagram")
     if hasattr(result, 'circuit'):
-        with st.expander("ℹ️ Circuit Information", expanded=False):
-            circuit = result.circuit
-            col1, col2 = st.columns(2)
-            with col1:
-                st.write(f"**Qubits:** {circuit.program.n_qubits}")
-                st.write(f"**Operations:** {len(circuit.program.ops)}")
-            with col2:
-                st.write(f"**Depth:** {getattr(circuit, 'depth', lambda: 'N/A')()}")
-                st.write(f"**Classical Bits:** {circuit.program.n_clbits}")
+        try:
+            # Use the new MPL drawer with compact size
+            mpl_fig = result.circuit.draw('mpl', figsize=(6, 2.5))
+            st.pyplot(mpl_fig, use_container_width=False)
+        except Exception as e:
+            st.error(f"Could not generate circuit diagram: {e}")
 
 def _display_qsphere_tab(result):
-    """Display the Q-Sphere visualization tab."""
-    st.subheader("Qubit State on the Q-Sphere")
+    """Display Q-Sphere visualization."""
+    st.subheader("🌐 Q-Sphere Representation")
     try:
-        # Use the built-in Q-sphere visualization
-        qsphere_fig = result.circuit.draw('qsphere')
-        if qsphere_fig is not None:
-            st.pyplot(qsphere_fig)
-            plt.close(qsphere_fig)
-            st.markdown("""
-            ### Understanding the Q-Sphere
-            - The Q-sphere shows the quantum state's orientation in 3D space
-            - |0⟩ is at the top, |1⟩ is at the bottom
-            - The purple point shows the quantum state
-            - The line from origin to point shows the state vector
-            """)
-        else:
-            st.warning("Q-sphere visualization not available.")
+        qsphere_fig = result.circuit.draw('qsphere', figsize=(2.5, 2.5))
+        st.pyplot(qsphere_fig, use_container_width=False)
     except Exception as e:
-        st.error(f"Error generating Q-sphere: {str(e)}")
-        st.warning("Q-sphere visualization requires matplotlib and mpl_toolkits.")
-        st.code("pip install matplotlib numpy")
-    
+        st.error(f"Could not generate Q-Sphere: {e}")
+
 def _display_phase_tab(result):
-    """Display the phase visualization tab."""
-    st.subheader("Phase Visualization")
+    """Display phase visualization."""
+    st.subheader("🔄 Phase Visualization")
     try:
-        import numpy as np
+        # Check if statevector is available
+        if not hasattr(result, 'statevector') or result.statevector is None:
+            st.warning("Phase visualization requires statevector data.")
+            return
 
-        # Get the state vector
-        state = None
-        if hasattr(result, 'get_statevector'):
-            try:
-                state = result.get_statevector()
-            except Exception as e:
-                st.warning(f"Could not get statevector: {str(e)}")
-
-        if state is None:
-            state = np.zeros(2**result.n_qubits, dtype=complex)
-            state[0] = 1  # Default to |0> if no statevector available
-
-        # Create a figure for the phase visualization
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
-
-        # Plot amplitude
-        ax1.bar([0, 1], np.abs(state) ** 2, color='skyblue')
-        ax1.set_title('Probability Amplitudes')
-        ax1.set_xticks([0, 1])
-        ax1.set_xticklabels(['|0⟩', '|1⟩'])
+        statevector = result.statevector
+        # Ensure statevector is a numpy array
+        if not isinstance(statevector, np.ndarray):
+            statevector = np.array(statevector)
+            
+        n_states = len(statevector)
+        n_qubits = result.n_qubits
+        
+        # Calculate amplitude and phase
+        amplitudes = np.abs(statevector)
+        phases = np.angle(statevector)
+        
+        # Filter out states with near-zero probability to keep plot clean
+        threshold = 1e-6
+        active_indices = [i for i, amp in enumerate(amplitudes) if amp > threshold]
+        
+        if not active_indices:
+            st.info("State vector is zero.")
+            return
+            
+        active_amplitudes = amplitudes[active_indices]
+        active_phases = phases[active_indices]
+        active_labels = [f"|{i:0{n_qubits}b}⟩" for i in active_indices]
+        
+        # Create figure
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(6, 2.5))
+        
+        # Plot magnitudes
+        x_pos = np.arange(len(active_indices))
+        
+        ax1.bar(x_pos, active_amplitudes, color='#e17055', alpha=0.8, edgecolor='black')
+        ax1.set_title("Magnitude |α|")
+        ax1.set_xticks(x_pos)
+        ax1.set_xticklabels(active_labels, rotation=45)
         ax1.set_ylim(0, 1.1)
-        ax1.set_ylabel('Probability')
-
-        # Plot phase
-        phases = np.angle(state)
-        # Use scatter plot to make phases visible even when 0
-        ax2.scatter([0, 1], phases, color='lightcoral', s=100, zorder=5)
-        ax2.plot([0, 1], phases, 'o-', color='lightcoral', linewidth=2)
-        # Add background bars for reference
-        ax2.bar([0, 1], [2*np.pi]*2, bottom=-np.pi, color='lightgray', alpha=0.2, width=0.8)
-        ax2.set_title('Phases (radians)')
-        ax2.set_xticks([0, 1])
-        ax2.set_xticklabels(['|0⟩', '|1⟩'])
+        ax1.grid(axis='y', linestyle='--', alpha=0.3)
+        
+        # Plot phases
+        ax2.bar(x_pos, active_phases, color='#fdcb6e', alpha=0.8, edgecolor='black')
+        ax2.set_title("Phase φ (rad)")
+        ax2.set_xticks(x_pos)
+        ax2.set_xticklabels(active_labels, rotation=45)
         ax2.set_ylim(-np.pi, np.pi)
-        ax2.set_yticks([-np.pi, -np.pi/2, 0, np.pi/2, np.pi])
-        ax2.set_yticklabels(['-π', '-π/2', '0', 'π/2', 'π'])
-        ax2.set_ylabel('Phase (rad)')
-        # Add phase value labels
-        for i, phase in enumerate(phases):
-            ax2.text(i, phase + 0.1 if phase >= 0 else phase - 0.1,
-                    f'{phase:.2f}', ha='center',
-                    va='bottom' if phase >= 0 else 'top', fontsize=10)
-
+        ax2.axhline(0, color='black', linewidth=0.5)
+        ax2.grid(axis='y', linestyle='--', alpha=0.3)
+        
         plt.tight_layout()
-        st.pyplot(fig)
-        plt.close(fig)
-
-        # Add some explanation
-        st.markdown("""
-        ### Understanding Phase Visualization
-        - **Left plot**: Shows the probability of measuring |0⟩ and |1⟩
-        - **Right plot**: Shows the phase (angle) of each basis state as points on a circle
-        - Phase is measured in radians (-π to π)
-        - The gray background bars show the full phase range for reference
-        - A phase difference between |0⟩ and |1⟩ indicates quantum interference
-        """)
-
+        st.pyplot(fig, use_container_width=False)
+        
     except Exception as e:
-        st.error(f"Error generating phase visualization: {str(e)}")
-        st.warning("""
-        Phase visualization requires:
-        - A single-qubit circuit
-        - Matplotlib and NumPy installed
-        """)
-        st.code("pip install matplotlib numpy")
-    
-def _display_analysis_tab(result):
-    """Display the circuit analysis tab."""
-    if hasattr(result, 'circuit') and hasattr(result.circuit, 'analysis'):
-        analysis = result.circuit.analysis
+        st.error(f"Could not generate phase visualization: {e}")
 
-        # Circuit Depth
-        col1, col2 = st.columns(2)
-        with col1:
-            st.metric("Circuit Depth", analysis.depth())
-
-        # Operation Counts
-        with col2:
-            op_counts = analysis.count_ops()
-            st.metric("Total Operations", sum(op_counts.values()))
-
-        # Operation Distribution
-        if op_counts:
-            st.subheader("Operation Distribution")
-            try:
-                # Import required libraries
-                import numpy as np
-                import matplotlib.pyplot as plt
-
-                fig, ax = plt.subplots(figsize=(8, 2.5))
-
-                n_bars = len(op_counts)
-                bar_width = 0.8  # Wider bars with some spacing
-                x = np.arange(n_bars)  # Evenly spaced bars
-
-                # Calculate bar positions to center them
-                x = x + (1 - bar_width) / 2
-
-                bars = ax.bar(x, op_counts.values(),
-                            width=bar_width,
-                            color='#4B8BBE',
-                            edgecolor='white',
-                            linewidth=0.5,
-                            align='edge')
-
-                ax.set_ylabel("", fontsize=5)
-                ax.set_title("Gate Counts", pad=1, fontsize=7, y=0.95)
-                ax.set_xticks(x)
-                ax.set_xticklabels(op_counts.keys(), rotation=45, ha='right', fontsize=5)
-
-                # Set y-ticks and other properties
-                ax.tick_params(axis='both', which='both', length=1, width=0.5, pad=1)
-
-                # Remove spines
-                for spine in ax.spines.values():
-                    spine.set_visible(False)
-
-                # Set tighter margins and layout
-                ax.margins(x=0.01, y=0.1)
-                plt.yticks(fontsize=5)
-                plt.tight_layout()
-
-                # Display the plot
-                st.pyplot(fig, use_container_width=True)  # Responsive
-                plt.close(fig)
-
-            except Exception as e:
-                st.error(f"Error generating operation distribution: {str(e)}")
-                st.warning("Please ensure matplotlib is properly installed.")
-                st.code("pip install matplotlib numpy")
-
-        # Qubit Usage
-        qubit_usage = analysis.get_qubit_usage()
-        if qubit_usage:
-            st.subheader("Qubit Usage")
-            fig, ax = plt.subplots(figsize=(8, 2.5))  # Increased height for better visibility
-            n_bars = len(qubit_usage)
-            # Match histogram style with proper bar spacing
-            bar_width = 0.8  # Wider bars with some spacing
-            import numpy as np
-            x = np.arange(n_bars)  # Evenly spaced bars
-
-            # Calculate bar positions to center them
-            x = x + (1 - bar_width) / 2
-
-            bars = ax.bar(x, qubit_usage.values(),
-                        width=bar_width,
-                        color='#4B8BBE',
-                        edgecolor='white',
-                        linewidth=0.5,
-                        align='edge')
-
-            ax.set_ylabel("", fontsize=5)
-            ax.set_title("Qubit Usage", pad=1, fontsize=7, y=0.95)
-            ax.set_xticks(x)
-            ax.set_xticklabels([f"Q{q}" for q in qubit_usage.keys()],
-                              rotation=45, ha='right', fontsize=5)
-            plt.yticks(fontsize=5)
-            ax.tick_params(axis='both', which='both', length=1, width=0.5, pad=1)
-
-            # Remove spines and adjust layout
-            for spine in ax.spines.values():
-                spine.set_visible(False)
-
-            # Set tighter margins and layout
-            ax.margins(x=0.01, y=0.1)
-            plt.tight_layout(pad=0.1, h_pad=0.1, w_pad=0.1)
-            st.pyplot(fig, use_container_width=True)  # Responsive
-            plt.close(fig)
-    else:
-        st.info("Circuit analysis features not available for this result.")
-    
-def _display_circuit_diagram_tab(result):
-    """Display the circuit diagram tab."""
-    st.subheader("🔍 Circuit Diagram")
-
-    # Try to get the diagram from the result or generate it
-    diagram = getattr(result, 'diagram', None)
-    if diagram is None and hasattr(result, 'circuit'):
-        try:
-            diagram = result.circuit.draw('text')
-        except Exception as e:
-            st.warning(f"⚠️ Could not generate circuit diagram: {e}")
-            diagram = None
-
-    if diagram and "Error" not in str(diagram) and "empty" not in str(diagram):
-        # Display the ASCII diagram
-        st.code(diagram, language='text')
-
-        # Download button
-        st.download_button(
-            label="📥 Download Diagram",
-            data=diagram,
-            file_name="circuit_diagram.txt",
-            mime="text/plain"
-        )
-
-        # Try to show matplotlib visualization
-        try:
-            mpl_fig = result.circuit.draw('mpl')
-            if mpl_fig is not None:
-                st.markdown("### 🎨 Enhanced Circuit Visualization")
-                st.pyplot(mpl_fig)
-                plt.close(mpl_fig)
-        except Exception as e:
-            st.info("ℹ️ Enhanced visualization not available for this circuit type")
-
-    else:
-        st.info("ℹ️ Circuit diagram not available. The circuit may be too complex or visualization is not supported.")
-    
 def _display_details_tab(result, counts):
     """Display the execution details tab."""
     st.subheader("📋 Execution Details")
@@ -740,6 +540,50 @@ def _display_details_tab(result, counts):
                 # Create a nice visualization of gate counts
                 gate_data = [{"Gate": gate, "Count": count} for gate, count in ops.items()]
                 st.table(gate_data)
+
+def display_results(result):
+    """Displays the results of a quantum circuit execution with enhanced visualization."""
+    _display_execution_summary(result)
+
+    tab_titles = _get_available_tabs(result)
+    tabs = st.tabs(tab_titles)
+
+    counts, total_shots, probabilities, n_qubits = _extract_common_data(result)
+
+    # Display each tab content
+    tab_index = 0
+
+    # Histogram tab (always first)
+    with tabs[tab_index]:
+        _display_histogram_tab(result, probabilities, n_qubits, total_shots, "🌐 Q-Sphere" in tab_titles)
+    tab_index += 1
+
+    # Analysis tab (if available)
+    if "📈 Stats" in tab_titles:
+        with tabs[tab_index]:
+            _display_analysis_tab(result)
+        tab_index += 1
+
+    # Circuit Diagram tab
+    with tabs[tab_index]:
+        _display_circuit_diagram_tab(result)
+    tab_index += 1
+
+    # Q-Sphere tab (for single qubit)
+    if "🌐 Q-Sphere" in tab_titles:
+        with tabs[tab_index]:
+            _display_qsphere_tab(result)
+        tab_index += 1
+
+    # Phase tab (for single qubit)
+    if "🔄 Phase" in tab_titles:
+        with tabs[tab_index]:
+            _display_phase_tab(result)
+        tab_index += 1
+
+    # Details tab (always last)
+    with tabs[tab_index]:
+        _display_details_tab(result, counts)
 
 def main():
     """Main function to run the Streamlit app."""
@@ -879,6 +723,11 @@ qc.measure(0, 1)"""
                 st.session_state.code = test_circuit
                 st.rerun()
 
+        # Results section - Moved here to be directly below actions
+        if st.session_state.execution_result:
+            st.markdown("---")
+            display_results(st.session_state.execution_result)
+
     with settings_col:
         st.subheader("⚙️ Simulation Settings")
 
@@ -887,45 +736,41 @@ qc.measure(0, 1)"""
             "Backend",
             list(config.BACKENDS.keys()),
             index=list(config.BACKENDS.keys()).index(st.session_state.backend_name),
-            help="Choose the quantum simulator backend"
+            help="Select the quantum backend simulator"
         )
         st.session_state.backend_name = backend_name
-        st.caption(f"📋 {config.BACKENDS[backend_name]['description']}")
 
-        # Shots slider with better explanation
-        shots = st.slider(
-            "Measurement Shots",
-            min_value=100,
+        # Shots
+        shots = st.number_input(
+            "Shots",
+            min_value=1,
             max_value=10000,
             value=st.session_state.shots,
             step=100,
-            help="Number of times to measure the circuit. More shots = better statistics but slower simulation."
+            help="Number of times to execute the circuit"
         )
         st.session_state.shots = shots
 
-        st.markdown("### Noise Configuration")
-        st.caption("Add realistic noise to simulate quantum hardware imperfections")
-
-        # Noise controls in a more organized way
-        noise_cfg = {}
-        if config.BACKENDS[backend_name]["noise_model"]:
-            # Readout error
-            ro = st.slider(
-                "Readout Error",
-                0.0, 1.0,
-                float(st.session_state.noise_cfg.get('readout_error', config.DEFAULT_NOISE_LEVEL)),
-                0.01,
-                help="Probability that a measurement result is flipped"
-            )
-
-            # Gate errors
+        # Noise Configuration
+        st.markdown("---")
+        st.markdown("**Noise Model**")
+        
+        # Only show noise options if backend supports it
+        if config.BACKENDS[backend_name].get("noise_supported", False):
             col_a, col_b = st.columns(2)
             with col_a:
+                ro = st.slider(
+                    "Readout Error",
+                    0.0, 0.2,
+                    float(st.session_state.noise_cfg.get('readout_error', config.DEFAULT_NOISE_LEVEL)),
+                    0.01,
+                    help="Probability of measurement error"
+                )
                 e1 = st.slider(
                     "1-Qubit Gate Error",
-                    0.0, 1.0,
+                    0.0, 0.1,
                     float(st.session_state.noise_cfg.get('oneq_error', config.DEFAULT_NOISE_LEVEL)),
-                    0.01,
+                    0.001,
                     help="Depolarizing error per single-qubit gate"
                 )
             with col_b:
@@ -965,7 +810,7 @@ qc.measure(0, 1)"""
             **4.** Run simulation above!
             """)
 
-        with st.expander("� Single-Qubit Gates", expanded=False):
+        with st.expander(" Single-Qubit Gates", expanded=False):
             st.markdown("""
             - `h(q)`: Hadamard (superposition)
             - `x(q)`: Pauli-X (NOT gate)
@@ -991,30 +836,30 @@ qc.measure(0, 1)"""
 
         # Interactive Gate Builder
         st.markdown("---")
-        st.markdown("### 🛠️ Interactive Gate Builder")
-        gate_type = st.selectbox("Select Gate Type", ["Hadamard", "Pauli-X", "Pauli-Y", "Pauli-Z", "CNOT", "Rotation"])
-        qubit = st.slider("Target Qubit", 0, 4, 0)
+        with st.expander("🛠️ Interactive Gate Builder", expanded=False):
+            gate_type = st.selectbox("Select Gate Type", ["Hadamard", "Pauli-X", "Pauli-Y", "Pauli-Z", "CNOT", "Rotation"])
+            qubit = st.slider("Target Qubit", 0, 4, 0)
 
-        if gate_type == "CNOT":
-            control_qubit = st.slider("Control Qubit", 0, 4, 0)
-            if control_qubit != qubit:
-                gate_code = f"qc.cx({control_qubit}, {qubit})"
+            if gate_type == "CNOT":
+                control_qubit = st.slider("Control Qubit", 0, 4, 0)
+                if control_qubit != qubit:
+                    gate_code = f"qc.cx({control_qubit}, {qubit})"
+                else:
+                    gate_code = "# Invalid: Control and target qubits must be different"
+            elif gate_type.startswith("Rotation"):
+                angle = st.slider("Angle (radians)", 0.0, 2*3.14159, 3.14159/2)
+                axis = st.selectbox("Axis", ["X", "Y", "Z"])
+                gate_code = f"qc.r{axis.lower()}({angle:.2f}, {qubit})"
             else:
-                gate_code = "# Invalid: Control and target qubits must be different"
-        elif gate_type.startswith("Rotation"):
-            angle = st.slider("Angle (radians)", 0.0, 2*3.14159, 3.14159/2)
-            axis = st.selectbox("Axis", ["X", "Y", "Z"])
-            gate_code = f"qc.r{axis.lower()}({angle:.2f}, {qubit})"
-        else:
-            gate_map = {"Hadamard": "h", "Pauli-X": "x", "Pauli-Y": "y", "Pauli-Z": "z"}
-            gate_code = f"qc.{gate_map[gate_type]}({qubit})"
+                gate_map = {"Hadamard": "h", "Pauli-X": "x", "Pauli-Y": "y", "Pauli-Z": "z"}
+                gate_code = f"qc.{gate_map[gate_type]}({qubit})"
 
-        st.code(gate_code)
-        if st.button("➕ Add to Circuit"):
-            if not st.session_state.code.endswith("\n"):
-                st.session_state.code += "\n"
-            st.session_state.code += gate_code + "\n"
-            st.rerun()
+            st.code(gate_code)
+            if st.button("➕ Add to Circuit"):
+                if not st.session_state.code.endswith("\n"):
+                    st.session_state.code += "\n"
+                st.session_state.code += gate_code + "\n"
+                st.rerun()
 
         # Tips section
         st.markdown("---")
@@ -1026,26 +871,6 @@ qc.measure(0, 1)"""
         - **Noise**: Add realistic errors to simulate hardware
         """)
 
-    # Results section
-    if st.session_state.execution_result:
-        results_container = st.container()
-        with results_container:
-            st.markdown("---")
-            display_results(st.session_state.execution_result)
-
-    with ref_col:
-        st.subheader("Quick References")
-        st.info("💡 Use `qc.` to access circuit methods. Example: `qc.h(0)`")
-        gate_sets = {
-            "Single-Qubit": "- `h(q)`: Hadamard\n- `x(q)`: Pauli-X (NOT)\n- `sx(q)`: √X\n- `sxdg(q)`: √X†\n- `y(q)`: Pauli-Y\n- `z(q)`: Pauli-Z",
-            "Phase": "- `s(q)`: Phase Gate\n- `sdg(q)`: S-dagger\n- `t(q)`: T Gate\n- `tdg(q)`: T-dagger\n- `p(θ, q)`: Phase shift",
-            "Rotation": "- `rx(θ, q)`\n- `ry(θ, q)`\n- `rz(θ, q)`",
-            "Two-Qubit": "- `cx(c, t)`: CNOT\n- `cy(c, t)`\n- `csx(c, t)`\n- `cp(θ, c, t)`\n- `cz(c, t)`\n- `swap(q1, q2)`\n- `iswap(q1, q2)`",
-            "Three-Qubit": "- `ccx(c1, c2, t)`: Toffoli\n- `ccz(c1, c2, t)`\n- `cswap(c, t1, t2)`: Fredkin"
-        }
-        for name, text in gate_sets.items():
-            with st.expander(name):
-                st.markdown(text)
 
 # This ensures the main function is called when the streamlit app is run
 if __name__ == "__main__":

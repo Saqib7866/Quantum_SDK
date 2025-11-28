@@ -8,6 +8,6 @@ DEFAULT_MAX_QUBITS = 5
 BACKENDS = {
     "sim-local": {
         "description": "A simple local statevector simulator.",
-        "noise_model": True
+        "noise_supported": True
     },
 }
